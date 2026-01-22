@@ -1,21 +1,21 @@
-# ---- Build stage ----
+# -------- Build stage --------
 FROM gradle:8.10-jdk21 AS build
-WORKDIR /app
+WORKDIR /home/gradle/app
 
-# Copy everything
-COPY . .
+# Copy everything (includes gradlew, build.gradle, src, etc.)
+COPY --chown=gradle:gradle . .
 
-# Build the jar (skip tests to speed up deploy)
-RUN gradle clean build -x test --no-daemon
+# Build bootJar (Spring Boot fat jar)
+RUN gradle clean bootJar -x test --no-daemon
 
-# ---- Run stage ----
+# -------- Run stage --------
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copy the built jar into the runtime image
-COPY --from=build /app/build/libs/*.jar app.jar
+# Copy the built jar
+COPY --from=build /home/gradle/app/build/libs/*.jar app.jar
 
-# Render provides $PORT, Spring uses server.port=${PORT:8080}
+# Render sets PORT automatically; your app already uses ${PORT:8080}
 EXPOSE 8080
 
-ENTRYPOINT ["java","-jar","app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
