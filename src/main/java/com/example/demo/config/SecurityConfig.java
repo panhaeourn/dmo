@@ -36,7 +36,13 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // ✅ AUTH ENDPOINTS — MUST BE FIRST
+                        // ✅ allow root + error (important for browsers + Spring error handling)
+                        .requestMatchers("/", "/error").permitAll()
+
+                        // ✅ (optional) actuator health if you use it
+                        .requestMatchers("/actuator/health").permitAll()
+
+                        // ✅ AUTH ENDPOINTS
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/otp/**", "/api/otp/**").permitAll()
 
@@ -51,6 +57,7 @@ public class SecurityConfig {
                         // 🔐 EVERYTHING ELSE
                         .anyRequest().authenticated()
                 )
+
 
                 .authenticationProvider(daoAuthenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
