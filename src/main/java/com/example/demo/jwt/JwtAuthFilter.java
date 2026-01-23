@@ -24,10 +24,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final AppUserService appUserService;
 
-    // ✅ IMPORTANT: Don't run JWT filter on public endpoints
+    /**
+     * Don't run JWT filter on public endpoints (important so permitAll() truly works).
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
+        String method = request.getMethod();
 
         return path.equals("/")
                 || path.equals("/error")
@@ -35,10 +38,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/auth/")
                 || path.startsWith("/api/otp/")
                 || path.startsWith("/otp/")
-                || (request.getMethod().equals("GET") && path.startsWith("/api/courses/"))
-                || (request.getMethod().equals("GET") && path.startsWith("/files/"));
+                || ("GET".equals(method) && path.startsWith("/api/courses/"))
+                || ("GET".equals(method) && path.startsWith("/files/"));
     }
-
 
     @Override
     protected void doFilterInternal(
@@ -57,7 +59,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7).trim();
 
-        // Bearer " " (empty token) -> continue (avoid blocking register/login)
+        // Empty token -> continue (avoid blocking public endpoints accidentally)
         if (token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
@@ -87,7 +89,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
-            // ✅ If token is invalid/expired -> return 401 JSON
+            // Invalid/expired token -> return 401 JSON
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("""
