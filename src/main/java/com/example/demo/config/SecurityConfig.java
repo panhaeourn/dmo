@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
 
                         // ✅ AUTH ENDPOINTS
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+
                         .requestMatchers("/otp/**", "/api/otp/**").permitAll()
 
                         // ✅ PUBLIC READ

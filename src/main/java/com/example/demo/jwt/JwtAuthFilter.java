@@ -35,12 +35,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return path.equals("/")
                 || path.equals("/error")
                 || path.equals("/actuator/health")
-                || path.startsWith("/api/auth/")
+
+                // auth endpoints that must be public
+                || path.equals("/api/auth/login")
+                || path.equals("/api/auth/register")
+
+                // otp endpoints
                 || path.startsWith("/api/otp/")
                 || path.startsWith("/otp/")
+
+                // public GET endpoints
                 || ("GET".equals(method) && path.startsWith("/api/courses/"))
                 || ("GET".equals(method) && path.startsWith("/files/"));
     }
+
 
     @Override
     protected void doFilterInternal(
