@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -14,13 +15,14 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    // same secret used for generating + validating
-    private static final String SECRET =
-            "u9x3p/Sn0Hf4kT9s8BQ2D0dW3Lt2ePqF6ul7JoJ8gH1vB9cN4y9K6wT1zP7";
+    @Value("${app.jwt.secret-base64}")
+    private String secretBase64;
+
+    @Value("${app.jwt.expiry-ms:86400000}")
+    private long expiryMs;
 
     private SecretKey getSignKey() {
-        // either use getBytes() or base64 – but be consistent
-        byte[] keyBytes = SECRET.getBytes();
+        byte[] keyBytes = Decoders.BASE64.decode(secretBase64);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -33,33 +35,57 @@ public class JwtService {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> resolver) {
-        Claims claims = extractAllClaims(token);
-        return resolver.apply(claims);
+        return resolver.apply(extractAllClaims(token));
     }
 
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    /**
+     * Generate JWT with email as subject
+     */
     public String generateToken(String email) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000L); // 24h
+        Date expiry = new Date(now.getTime() + expiryMs);
 
         return Jwts.builder()
                 .subject(email)
                 .issuedAt(now)
                 .expiration(expiry)
-                .signWith(getSignKey())
+                .signWith(getSignKey()) // HS256 inferred from key
                 .compact();
     }
 
-    private boolean isTokenExpired(String token) {
-        Date exp = extractClaim(token, Claims::getExpiration);
-        return exp.before(new Date());
+    /**
+     * Simple validation (signature + expiry)
+     */
+    public boolean isValid(String token) {
+        try {
+            // parsing verifies signature automatically (because verifyWith)
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
+    /**
+     * Validate token matches the given user
+     */
     public boolean validateToken(String token, UserDetails userDetails) {
         String email = extractEmail(token);
         return email.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    public String getEmailFromToken(String token) {
+        return extractEmail(token);
     }
 }

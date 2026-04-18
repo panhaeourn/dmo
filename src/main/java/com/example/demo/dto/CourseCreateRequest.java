@@ -6,4 +6,5 @@ import lombok.Data;
 public class CourseCreateRequest {
     private String title;
     private String description;
+    private Double price;
 }

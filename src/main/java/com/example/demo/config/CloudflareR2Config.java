@@ -6,21 +6,25 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class MinioConfig {
+public class CloudflareR2Config {
 
-    @Value("${minio.url}")
-    private String url;
+    @Value("${cloudflare.r2.endpoint}")
+    private String endpoint;
 
-    @Value("${minio.access-key}")
+    @Value("${cloudflare.r2.region:auto}")
+    private String region;
+
+    @Value("${cloudflare.r2.access-key}")
     private String accessKey;
 
-    @Value("${minio.secret-key}")
+    @Value("${cloudflare.r2.secret-key}")
     private String secretKey;
 
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
-                .endpoint(url)
+                .endpoint(endpoint)
+                .region(region)
                 .credentials(accessKey, secretKey)
                 .build();
     }

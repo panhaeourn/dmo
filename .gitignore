@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+node_modules/
+boot*.log
+boot*.out
+boot*.err
+*.log
+package-lock.json
+package.json

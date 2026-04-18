@@ -1,90 +1,96 @@
 package com.example.demo.config;
 
-import com.example.demo.jwt.JwtAuthFilter;
-import lombok.RequiredArgsConstructor;
+import com.example.demo.auth.OAuth2SuccessHandler;
+import com.example.demo.jwt.JwtAuthEntryPoint;
+import com.example.demo.jwt.JwtCookieAuthFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
-@RequiredArgsConstructor
-@EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-    private final UserDetailsService userDetailsService;
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final JwtCookieAuthFilter jwtCookieAuthFilter;
+    private final JwtAuthEntryPoint jwtAuthEntryPoint;
+
+    public SecurityConfig(
+            OAuth2SuccessHandler oAuth2SuccessHandler,
+            JwtCookieAuthFilter jwtCookieAuthFilter,
+            JwtAuthEntryPoint jwtAuthEntryPoint
+    ) {
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.jwtCookieAuthFilter = jwtCookieAuthFilter;
+        this.jwtAuthEntryPoint = jwtAuthEntryPoint;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> {})
-
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-
-                        // ✅ allow root + error (important for browsers + Spring error handling)
                         .requestMatchers("/", "/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // ✅ (optional) actuator health if you use it
-                        .requestMatchers("/actuator/health").permitAll()
-
-                        // ✅ AUTH ENDPOINTS
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-
-                        .requestMatchers("/otp/**", "/api/otp/**").permitAll()
-
-                        // ✅ PUBLIC READ
-                        .requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/**").permitAll()
+                        .requestMatchers("/api/health").permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/courses", "/api/courses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/course-videos/course/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/course-videos/course/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
-
-                        // 🔒 ADMIN ONLY
+                        .requestMatchers(HttpMethod.HEAD, "/files/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/courses/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/files/**").hasRole("ADMIN")
-
-                        // 🔐 EVERYTHING ELSE
+                        .requestMatchers(HttpMethod.PUT, "/api/courses/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/courses/**").hasRole("ADMIN")
+                        .requestMatchers("/api/reception/**").hasAnyRole("ADMIN", "RECEPTIONIST")
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler));
 
-
-                .authenticationProvider(daoAuthenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     @Bean
-    public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
-    @Bean
-    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-        var config = new org.springframework.web.cors.CorsConfiguration();
-        config.setAllowedOriginPatterns(java.util.List.of("*"));
-        config.setAllowedMethods(java.util.List.of("GET","POST","PUT","DELETE","OPTIONS"));
-        config.setAllowedHeaders(java.util.List.of("*"));
-        config.setAllowCredentials(false);
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
-        var source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("Authorization"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
@@ -95,8 +101,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-            throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 }
