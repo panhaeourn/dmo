@@ -115,7 +115,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                     SecurityContextHolder.getContext()
             );
 
-            response.sendRedirect(frontendUrl + "/#/");
+            response.sendRedirect(frontendUrl + "/#/oauth-success");
 
         } catch (Exception e) {
             e.printStackTrace();
