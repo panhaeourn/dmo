@@ -386,6 +386,71 @@ public class BakongService {
         return out;
     }
 
+    public Map<String, Object> manualUnlockCoursePayment(String transactionId) {
+        if (transactionId == null || transactionId.isBlank()) {
+            throw new IllegalArgumentException("transactionId is required");
+        }
+
+        AppUser adminUser = getCurrentUser();
+        if (!"ADMIN".equalsIgnoreCase(adminUser.getRole())) {
+            throw new IllegalStateException("Only admin can manually unlock a payment");
+        }
+
+        PaymentTransaction tx = paymentTransactionRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment transaction not found"));
+
+        AppUser paidUser = appUserRepository.findById(tx.getUserId())
+                .orElseThrow(() -> new IllegalStateException("Paid user not found"));
+
+        Course course = courseRepository.findById(tx.getCourseId())
+                .orElseThrow(() -> new IllegalArgumentException("Course not found"));
+
+        boolean alreadyEnrolled = enrollmentRepository.existsByUserAndCourse(paidUser, course);
+        if (!alreadyEnrolled) {
+            enrollmentRepository.save(new Enrollment(paidUser, course));
+        }
+
+        tx.setStatus("PAID");
+        if (tx.getPaidAt() == null) {
+            tx.setPaidAt(Instant.now());
+        }
+        paymentTransactionRepository.save(tx);
+
+        paymentHistoryRepository
+                .findFirstByTransactionRefOrderByIdDesc(tx.getTransactionId())
+                .orElseGet(() -> {
+                    PaymentHistory history = new PaymentHistory();
+                    history.setPaymentType("COURSE");
+                    history.setCourseId(course.getId());
+                    history.setCourseName(course.getTitle());
+                    history.setStudentId(paidUser.getEmail());
+                    history.setStudentName(paidUser.getName());
+                    history.setAmount(tx.getAmount());
+                    history.setPaymentMethod("BAKONG");
+                    history.setTransactionRef(tx.getTransactionId());
+                    history.setBakongMd5(tx.getBakongMd5());
+                    history.setStatus("PAID");
+
+                    LocalDateTime now = LocalDateTime.now();
+                    history.setCreatedAt(now);
+                    history.setUpdatedAt(now);
+                    history.setPaidAt(now);
+                    history.setCheckedBy(adminUser.getEmail());
+                    history.setNote("Manual unlock by admin because Bakong verification was blocked");
+
+                    return paymentHistoryRepository.save(history);
+                });
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("success", true);
+        out.put("paid", true);
+        out.put("unlocked", true);
+        out.put("status", "PAID");
+        out.put("courseId", tx.getCourseId());
+        out.put("message", "Course manually unlocked by admin");
+        return out;
+    }
+
     private boolean isBakongPaid(Map<String, Object> check) {
         System.out.println("=== isBakongPaid DEBUG ===");
         System.out.println("full check = " + check);

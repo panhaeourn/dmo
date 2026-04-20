@@ -55,4 +55,9 @@ public class BakongController {
     public Map<String, Object> paymentStatus(@PathVariable String transactionId) {
         return bakongService.getPaymentStatus(transactionId);
     }
+
+    @PostMapping("/manual-unlock/{transactionId}")
+    public Map<String, Object> manualUnlock(@PathVariable String transactionId) {
+        return bakongService.manualUnlockCoursePayment(transactionId);
+    }
 }
