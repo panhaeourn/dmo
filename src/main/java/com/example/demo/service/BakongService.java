@@ -31,9 +31,12 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -41,6 +44,9 @@ public class BakongService {
 
     @Value("${bakong.base-url:https://api-bakong.nbc.gov.kh}")
     private String baseUrl;
+
+    @Value("${bakong.alternative-base-urls:}")
+    private String alternativeBaseUrls;
 
     @Value("${bakong.token:}")
     private String token;
@@ -460,11 +466,23 @@ public class BakongService {
             return false;
         }
 
+        Object successObj = check.get("success");
+        if (successObj instanceof Boolean success && !success) {
+            return false;
+        }
+
         Object dataObj = check.get("data");
         System.out.println("dataObj = " + dataObj);
 
         if (dataObj == null) {
             return false;
+        }
+
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object responseCode = dataMap.get("responseCode");
+            if (responseCode != null && !"0".equals(String.valueOf(responseCode).trim())) {
+                return false;
+            }
         }
 
         return containsPaidSignal(dataObj);
@@ -616,45 +634,73 @@ public class BakongService {
             throw new IllegalStateException("bakong.token is empty");
         }
 
-        String url = baseUrl + "/v1/check_transaction_by_md5";
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON, MediaType.ALL));
         headers.setBearerAuth(token);
-        headers.set(HttpHeaders.USER_AGENT, "CITO-Payment-Service/1.0");
+        headers.set(
+                HttpHeaders.USER_AGENT,
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        + "(KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 CITO/1.0"
+        );
+        headers.set(HttpHeaders.CACHE_CONTROL, "no-cache");
+        headers.set("Pragma", "no-cache");
 
         Map<String, Object> body = new HashMap<>();
         body.put("md5", md5);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response;
-        try {
-            response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request,
-                    Map.class
-            );
-        } catch (RestClientResponseException ex) {
-            String responseBody = ex.getResponseBodyAsString();
-            System.out.println("=== BAKONG VERIFY HTTP ERROR ===");
-            System.out.println("status = " + ex.getRawStatusCode());
-            System.out.println("body = " + responseBody);
-            System.out.println("================================");
-            throw new IllegalStateException(buildBakongVerificationMessage(ex.getRawStatusCode(), responseBody));
-        } catch (Exception ex) {
-            System.out.println("=== BAKONG VERIFY ERROR ===");
-            System.out.println("message = " + ex.getMessage());
-            System.out.println("===========================");
-            throw new IllegalStateException("Unable to verify Bakong payment right now.");
+        IllegalStateException lastError = null;
+
+        for (String candidateBaseUrl : resolveBakongBaseUrls()) {
+            String url = candidateBaseUrl + "/v1/check_transaction_by_md5";
+            try {
+                System.out.println("=== BAKONG VERIFY ATTEMPT ===");
+                System.out.println("url = " + url);
+                System.out.println("=============================");
+
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.POST,
+                        request,
+                        Map.class
+                );
+
+                Map<String, Object> out = new HashMap<>();
+                out.put("success", true);
+                out.put("md5", md5);
+                out.put("data", response.getBody());
+                out.put("sourceUrl", candidateBaseUrl);
+                return out;
+            } catch (RestClientResponseException ex) {
+                String responseBody = ex.getResponseBodyAsString();
+                System.out.println("=== BAKONG VERIFY HTTP ERROR ===");
+                System.out.println("url = " + url);
+                System.out.println("status = " + ex.getRawStatusCode());
+                System.out.println("body = " + responseBody);
+                System.out.println("================================");
+
+                lastError = new IllegalStateException(
+                        buildBakongVerificationMessage(ex.getRawStatusCode(), responseBody)
+                );
+
+                if (shouldTryAnotherBakongHost(ex.getRawStatusCode())) {
+                    continue;
+                }
+
+                throw lastError;
+            } catch (Exception ex) {
+                System.out.println("=== BAKONG VERIFY ERROR ===");
+                System.out.println("url = " + url);
+                System.out.println("message = " + ex.getMessage());
+                System.out.println("===========================");
+                lastError = new IllegalStateException("Unable to verify Bakong payment right now.");
+            }
         }
 
-        Map<String, Object> out = new HashMap<>();
-        out.put("success", true);
-        out.put("md5", md5);
-        out.put("data", response.getBody());
-        return out;
+        throw lastError != null
+                ? lastError
+                : new IllegalStateException("Unable to verify Bakong payment right now.");
     }
 
     private String buildBakongVerificationMessage(int statusCode, String responseBody) {
@@ -673,6 +719,54 @@ public class BakongService {
         }
 
         return "Bakong verification failed (HTTP " + statusCode + ").";
+    }
+
+    private boolean shouldTryAnotherBakongHost(int statusCode) {
+        return statusCode == 401 || statusCode == 403 || statusCode >= 500;
+    }
+
+    private List<String> resolveBakongBaseUrls() {
+        Set<String> orderedUrls = new LinkedHashSet<>();
+
+        addBakongBaseUrl(orderedUrls, baseUrl);
+
+        if (baseUrl != null && baseUrl.contains("api-bakong.nbc.gov.kh")) {
+            addBakongBaseUrl(orderedUrls, baseUrl.replace("api-bakong.nbc.gov.kh", "api-bakong.nbc.org.kh"));
+        }
+
+        if (baseUrl != null && baseUrl.contains("api-bakong.nbc.org.kh")) {
+            addBakongBaseUrl(orderedUrls, baseUrl.replace("api-bakong.nbc.org.kh", "api-bakong.nbc.gov.kh"));
+        }
+
+        addBakongBaseUrl(orderedUrls, "https://api-bakong.nbc.org.kh");
+        addBakongBaseUrl(orderedUrls, "https://api-bakong.nbc.gov.kh");
+
+        if (alternativeBaseUrls != null && !alternativeBaseUrls.isBlank()) {
+            for (String raw : alternativeBaseUrls.split(",")) {
+                addBakongBaseUrl(orderedUrls, raw);
+            }
+        }
+
+        return new ArrayList<>(orderedUrls);
+    }
+
+    private void addBakongBaseUrl(Set<String> orderedUrls, String candidate) {
+        if (candidate == null) {
+            return;
+        }
+
+        String normalized = candidate.trim();
+        if (normalized.isEmpty()) {
+            return;
+        }
+
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        if (!normalized.isEmpty()) {
+            orderedUrls.add(normalized);
+        }
     }
 
     @SuppressWarnings("unchecked")
