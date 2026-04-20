@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -25,6 +26,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtService jwtService;
     private final AppUserRepository appUserRepository;
     private final AppUserService appUserService;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -42,7 +44,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         try {
             OAuth2User user = (OAuth2User) authentication.getPrincipal();
 
-            String email = user.getAttribute("email");
+            String email = normalizeEmail(user.getAttribute("email"));
             if (email == null || email.isBlank()) {
                 response.sendError(400, "Google did not provide email. Check scopes (openid,profile,email).");
                 return;
@@ -59,9 +61,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 u.setEmail(email);
                 u.setName(finalFullName);
                 u.setUsername(finalFullName);
-                u.setPassword("OAUTH2_USER");
+                u.setPassword(passwordEncoder.encode("OAUTH2_USER"));
 
-                if (email.equalsIgnoreCase(adminEmail)) {
+                if (isAdminEmail(email)) {
                     u.setRole("ADMIN");
                 } else {
                     u.setRole("USER");
@@ -70,13 +72,18 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 return appUserRepository.save(u);
             });
 
-            if (email.equalsIgnoreCase(adminEmail) && !"ADMIN".equals(dbUser.getRole())) {
+            if (isAdminEmail(email) && !"ADMIN".equalsIgnoreCase(dbUser.getRole())) {
                 dbUser.setRole("ADMIN");
                 appUserRepository.save(dbUser);
             }
 
             if (dbUser.getRole() == null || dbUser.getRole().isBlank()) {
                 dbUser.setRole("USER");
+                appUserRepository.save(dbUser);
+            }
+
+            if (dbUser.getPassword() == null || dbUser.getPassword().isBlank()) {
+                dbUser.setPassword(passwordEncoder.encode("OAUTH2_USER"));
                 appUserRepository.save(dbUser);
             }
 
@@ -121,5 +128,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             e.printStackTrace();
             response.sendError(500, "OAuth success error: " + e.getMessage());
         }
+    }
+
+    private boolean isAdminEmail(String email) {
+        String configuredAdmin = normalizeEmail(adminEmail);
+        return configuredAdmin != null && configuredAdmin.equals(normalizeEmail(email));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 }

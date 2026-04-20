@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import com.example.demo.auth.OAuth2FailureHandler;
 import com.example.demo.auth.OAuth2SuccessHandler;
 import com.example.demo.jwt.JwtAuthEntryPoint;
 import com.example.demo.jwt.JwtCookieAuthFilter;
@@ -29,15 +30,18 @@ public class SecurityConfig {
     private String frontendUrl;
 
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtCookieAuthFilter jwtCookieAuthFilter;
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
 
     public SecurityConfig(
             OAuth2SuccessHandler oAuth2SuccessHandler,
+            OAuth2FailureHandler oAuth2FailureHandler,
             JwtCookieAuthFilter jwtCookieAuthFilter,
             JwtAuthEntryPoint jwtAuthEntryPoint
     ) {
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.jwtCookieAuthFilter = jwtCookieAuthFilter;
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
     }
@@ -73,7 +77,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/reception/**").hasAnyRole("ADMIN", "RECEPTIONIST")
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler));
+                .oauth2Login(oauth -> oauth
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
+                );
 
         http.addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
