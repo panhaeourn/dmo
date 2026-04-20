@@ -380,6 +380,7 @@ public class BakongService {
         out.put("unlocked", false);
         out.put("status", "PENDING");
         out.put("courseId", tx.getCourseId());
+        out.put("message", "Payment is still being verified by Bakong");
         return out;
     }
 
@@ -409,15 +410,20 @@ public class BakongService {
         String text = String.valueOf(obj).toLowerCase();
         System.out.println("containsPaidSignal text = " + text);
 
-        if (text.contains("paid")
-                || text.contains("success")
-                || text.contains("completed")
-                || text.contains("approved")
-                || text.contains("settled")) {
+        if (containsNegativePaymentSignal(text)) {
+            return false;
+        }
+
+        if (containsPositivePaymentSignal(text)) {
             return true;
         }
 
         if (obj instanceof Map<?, ?> map) {
+            Boolean directDecision = detectPaidSignalFromMap(map);
+            if (directDecision != null) {
+                return directDecision;
+            }
+
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 Object key = entry.getKey();
                 Object value = entry.getValue();
@@ -438,6 +444,98 @@ public class BakongService {
         }
 
         return false;
+    }
+
+    private Boolean detectPaidSignalFromMap(Map<?, ?> map) {
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String key = String.valueOf(entry.getKey()).trim().toLowerCase();
+            Object value = entry.getValue();
+
+            if (value == null) {
+                continue;
+            }
+
+            if (isPaidKey(key)) {
+                Boolean result = asBoolean(value);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            if (isStatusKey(key)) {
+                String normalized = String.valueOf(value).trim().toLowerCase();
+                if (containsNegativePaymentSignal(normalized)) {
+                    return false;
+                }
+                if (containsPositivePaymentSignal(normalized)) {
+                    return true;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isPaidKey(String key) {
+        return "paid".equals(key)
+                || "ispaid".equals(key)
+                || "paidstatus".equals(key)
+                || "ispaidstatus".equals(key)
+                || "completed".equals(key)
+                || "success".equals(key)
+                || "iscompleted".equals(key)
+                || "issuccess".equals(key);
+    }
+
+    private boolean isStatusKey(String key) {
+        return key.contains("status")
+                || key.contains("state")
+                || key.contains("paymentstatus")
+                || key.contains("transactionstatus")
+                || key.contains("payment_state")
+                || key.contains("transaction_state");
+    }
+
+    private Boolean asBoolean(Object value) {
+        if (value instanceof Boolean boolValue) {
+            return boolValue;
+        }
+
+        String normalized = String.valueOf(value).trim().toLowerCase();
+        if ("true".equals(normalized) || "1".equals(normalized) || "yes".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized) || "0".equals(normalized) || "no".equals(normalized)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    private boolean containsPositivePaymentSignal(String text) {
+        return text.contains("paid")
+                || text.contains("completed")
+                || text.contains("approved")
+                || text.contains("settled")
+                || text.contains("success")
+                || text.contains("successful")
+                || text.contains("succeed")
+                || text.contains("done")
+                || text.contains("finished");
+    }
+
+    private boolean containsNegativePaymentSignal(String text) {
+        return text.contains("pending")
+                || text.contains("processing")
+                || text.contains("initiated")
+                || text.contains("created")
+                || text.contains("expired")
+                || text.contains("cancelled")
+                || text.contains("canceled")
+                || text.contains("failed")
+                || text.contains("declined")
+                || text.contains("rejected")
+                || text.contains("unpaid");
     }
 
     @SuppressWarnings("unchecked")

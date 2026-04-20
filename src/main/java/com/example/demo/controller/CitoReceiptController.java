@@ -83,12 +83,17 @@ public class CitoReceiptController {
             return ResponseEntity.badRequest().body("Student name is required");
         }
 
-        if (request.getBookPrice() == null || request.getBookPrice() <= 0) {
-            return ResponseEntity.badRequest().body("Book price must be greater than 0");
-        }
-
         if (request.getProgramPrice() == null || request.getProgramPrice() <= 0) {
             return ResponseEntity.badRequest().body("Course or monthly price must be greater than 0");
+        }
+
+        Double bookPrice = request.getBookPrice();
+        if (bookPrice == null) {
+            bookPrice = 0.0;
+        }
+
+        if (bookPrice < 0) {
+            return ResponseEntity.badRequest().body("Book price cannot be negative");
         }
 
         AppUser receptionist = appUserRepository.findByEmail(email).orElse(null);
@@ -111,9 +116,9 @@ public class CitoReceiptController {
         receipt.setEmail(request.getEmail());
         receipt.setAddress(request.getAddress());
         receipt.setSchedule(request.getSchedule());
-        receipt.setBookPrice(request.getBookPrice());
+        receipt.setBookPrice(bookPrice);
         receipt.setProgramPrice(request.getProgramPrice());
-        receipt.setTotalPrice(request.getBookPrice() + request.getProgramPrice());
+        receipt.setTotalPrice(bookPrice + request.getProgramPrice());
         receipt.setPaymentStatus("Pending");
         receipt.setQrImage(request.getQrImage());
         receipt.setQrText(request.getQrText());
