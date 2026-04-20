@@ -353,9 +353,7 @@ public class BakongService {
             out.put("unlocked", false);
             out.put("status", "PENDING");
             out.put("courseId", tx.getCourseId());
-            out.put("message", ex.getMessage() == null || ex.getMessage().isBlank()
-                    ? "Payment is still being verified by Bakong"
-                    : ex.getMessage());
+            out.put("message", "Payment is still being verified by Bakong");
             out.put("verificationPending", true);
             return out;
         }
