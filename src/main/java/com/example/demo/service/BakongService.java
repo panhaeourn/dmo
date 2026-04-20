@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
@@ -72,7 +73,7 @@ public class BakongService {
     @Value("${bakong.currency:USD}")
     private String bakongCurrency;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final AppUserRepository appUserRepository;
@@ -91,6 +92,13 @@ public class BakongService {
         this.appUserRepository = appUserRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.paymentHistoryRepository = paymentHistoryRepository;
+    }
+
+    private RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(8000);
+        return new RestTemplate(factory);
     }
 
     public BakongMerchantConfigDto getMerchantConfig() {
