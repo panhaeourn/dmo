@@ -10,6 +10,7 @@ import com.example.demo.repository.ReceptionistClaimCodeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,6 +21,9 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,6 +35,9 @@ public class AuthController {
     private final JwtService jwtService;
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.admin-emails:}")
+    private String adminEmails;
 
     @PostMapping(value = "/register", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -48,7 +55,7 @@ public class AuthController {
         String email = request.email.trim().toLowerCase();
         String phoneNumber = normalizePhone(request.phoneNumber);
 
-        if (userRepository.findByEmail(email).isPresent()) {
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             return ResponseEntity.badRequest().body(new ApiError("Email already exists"));
         }
 
@@ -58,7 +65,7 @@ public class AuthController {
         user.setPhoneNumber(phoneNumber);
         user.setPassword(passwordEncoder.encode(request.password));
         user.setName(request.username == null || request.username.isBlank() ? email : request.username.trim());
-        user.setRole("USER");
+        user.setRole(isConfiguredAdmin(email) ? "ADMIN" : "USER");
 
         userRepository.save(user);
 
@@ -72,10 +79,13 @@ public class AuthController {
             jakarta.servlet.http.HttpServletResponse httpResponse
     ) {
         try {
-            var authToken = new UsernamePasswordAuthenticationToken(request.email, request.password);
+            String email = normalizeEmail(request.email);
+            var authToken = new UsernamePasswordAuthenticationToken(email, request.password);
             authenticationManager.authenticate(authToken);
 
-            String token = jwtService.generateToken(request.email);
+            promoteAdminIfConfigured(email);
+
+            String token = jwtService.generateToken(email);
             addAccessTokenCookie(httpRequest, httpResponse, token, 60 * 60);
             return ResponseEntity.ok(new TokenResponse(token));
 
@@ -150,7 +160,7 @@ public class AuthController {
                     .body(new ApiError("Cannot determine user email"));
         }
 
-        AppUser user = userRepository.findByEmail(email).orElse(null);
+        AppUser user = userRepository.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
 
         if (user == null) {
             System.out.println("claimReceptionist user not found for email = " + email);
@@ -158,7 +168,7 @@ public class AuthController {
                     .body(new ApiError("User not found"));
         }
 
-        if ("ADMIN".equals(user.getRole())) {
+        if (syncAdminRoleIfConfigured(user) || "ADMIN".equalsIgnoreCase(user.getRole())) {
             user.setPassword(null);
             return ResponseEntity.ok(user);
         }
@@ -209,13 +219,15 @@ public class AuthController {
                     .body(new ApiError("Cannot determine user email"));
         }
 
-        AppUser user = userRepository.findByEmail(email).orElse(null);
+        AppUser user = userRepository.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
 
         if (user == null) {
             System.out.println("me user not found for email = " + email);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiError("User not found"));
         }
+
+        syncAdminRoleIfConfigured(user);
 
         user.setPassword(null);
         return ResponseEntity.ok(user);
@@ -255,6 +267,46 @@ public class AuthController {
                         "; SameSite=" + (isLocal ? "Lax" : "None");
 
         response.addHeader("Set-Cookie", setCookie);
+    }
+
+    private void promoteAdminIfConfigured(String email) {
+        userRepository.findByEmailIgnoreCase(normalizeEmail(email))
+                .ifPresent(this::syncAdminRoleIfConfigured);
+    }
+
+    private boolean syncAdminRoleIfConfigured(AppUser user) {
+        if (user == null || !isConfiguredAdmin(user.getEmail())) {
+            return false;
+        }
+
+        if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+            user.setRole("ADMIN");
+            userRepository.save(user);
+        }
+        return true;
+    }
+
+    private boolean isConfiguredAdmin(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            return false;
+        }
+        return configuredAdminEmails().contains(normalizedEmail);
+    }
+
+    private Set<String> configuredAdminEmails() {
+        if (adminEmails == null || adminEmails.isBlank()) {
+            return Set.of();
+        }
+
+        return Arrays.stream(adminEmails.split(","))
+                .map(this::normalizeEmail)
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.toSet());
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     public static class LoginRequest {

@@ -18,6 +18,9 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -31,8 +34,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    @Value("${app.admin-email}")
-    private String adminEmail;
+    @Value("${app.admin-emails:}")
+    private String adminEmails;
 
     @Override
     public void onAuthenticationSuccess(
@@ -56,7 +59,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                             ? email.split("@")[0]
                             : nameAttr;
 
-            AppUser dbUser = appUserRepository.findByEmail(email).orElseGet(() -> {
+            AppUser dbUser = appUserRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
                 AppUser u = new AppUser();
                 u.setEmail(email);
                 u.setName(finalFullName);
@@ -131,8 +134,23 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     private boolean isAdminEmail(String email) {
-        String configuredAdmin = normalizeEmail(adminEmail);
-        return configuredAdmin != null && configuredAdmin.equals(normalizeEmail(email));
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            return false;
+        }
+
+        return configuredAdminEmails().contains(normalizedEmail);
+    }
+
+    private Set<String> configuredAdminEmails() {
+        if (adminEmails == null || adminEmails.isBlank()) {
+            return Set.of();
+        }
+
+        return Arrays.stream(adminEmails.split(","))
+                .map(this::normalizeEmail)
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.toSet());
     }
 
     private String normalizeEmail(String email) {
