@@ -25,12 +25,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -552,24 +554,59 @@ public class BakongService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         headers.setBearerAuth(token);
+        headers.set(HttpHeaders.USER_AGENT, "CITO-Payment-Service/1.0");
 
         Map<String, Object> body = new HashMap<>();
         body.put("md5", md5);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                request,
-                Map.class
-        );
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    request,
+                    Map.class
+            );
+        } catch (RestClientResponseException ex) {
+            String responseBody = ex.getResponseBodyAsString();
+            System.out.println("=== BAKONG VERIFY HTTP ERROR ===");
+            System.out.println("status = " + ex.getRawStatusCode());
+            System.out.println("body = " + responseBody);
+            System.out.println("================================");
+            throw new IllegalStateException(buildBakongVerificationMessage(ex.getRawStatusCode(), responseBody));
+        } catch (Exception ex) {
+            System.out.println("=== BAKONG VERIFY ERROR ===");
+            System.out.println("message = " + ex.getMessage());
+            System.out.println("===========================");
+            throw new IllegalStateException("Unable to verify Bakong payment right now.");
+        }
 
         Map<String, Object> out = new HashMap<>();
         out.put("success", true);
         out.put("md5", md5);
         out.put("data", response.getBody());
         return out;
+    }
+
+    private String buildBakongVerificationMessage(int statusCode, String responseBody) {
+        String body = responseBody == null ? "" : responseBody.toLowerCase();
+
+        if (body.contains("cloudfront") || body.contains("request blocked")) {
+            return "Bakong verification is blocked right now (HTTP " + statusCode + ").";
+        }
+
+        if (statusCode == 401 || statusCode == 403) {
+            return "Bakong verification was denied (HTTP " + statusCode + ").";
+        }
+
+        if (statusCode >= 500) {
+            return "Bakong verification is temporarily unavailable (HTTP " + statusCode + ").";
+        }
+
+        return "Bakong verification failed (HTTP " + statusCode + ").";
     }
 
     @SuppressWarnings("unchecked")
