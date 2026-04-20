@@ -338,7 +338,27 @@ public class BakongService {
             throw new IllegalStateException("Saved payment md5 is empty");
         }
 
-        Map<String, Object> check = checkTransactionByMd5(tx.getBakongMd5());
+        Map<String, Object> check;
+        try {
+            check = checkTransactionByMd5(tx.getBakongMd5());
+        } catch (IllegalStateException ex) {
+            System.out.println("=== BAKONG STATUS VERIFY FAILED ===");
+            System.out.println("transactionId = " + transactionId);
+            System.out.println("message = " + ex.getMessage());
+            System.out.println("===================================");
+
+            Map<String, Object> out = new HashMap<>();
+            out.put("success", true);
+            out.put("paid", false);
+            out.put("unlocked", false);
+            out.put("status", "PENDING");
+            out.put("courseId", tx.getCourseId());
+            out.put("message", ex.getMessage() == null || ex.getMessage().isBlank()
+                    ? "Payment is still being verified by Bakong"
+                    : ex.getMessage());
+            out.put("verificationPending", true);
+            return out;
+        }
         System.out.println("Bakong raw check response = " + check);
 
         boolean paid = isBakongPaid(check);
