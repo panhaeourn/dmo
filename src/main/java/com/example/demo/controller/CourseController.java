@@ -47,7 +47,7 @@ public class CourseController {
 
         String email = extractEmail(authentication);
         if (email != null && !email.isBlank()) {
-            userRepository.findByEmail(email).ifPresent(user -> {
+            userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
                 List<Enrollment> enrollments = enrollmentRepository.findByUser(user);
                 for (Enrollment e : enrollments) {
                     enrolledCourseIds.add(e.getCourse().getId());
@@ -91,7 +91,7 @@ public class CourseController {
             return ResponseEntity.status(401).build();
         }
 
-        AppUser user = userRepository.findByEmail(email).orElseGet(() -> {
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             AppUser u = new AppUser();
             u.setEmail(email);
             u.setUsername(email);
@@ -236,7 +236,7 @@ public class CourseController {
         if (email == null || email.isBlank()) {
             return null;
         }
-        return userRepository.findByEmail(email).orElse(null);
+        return userRepository.findByEmailIgnoreCase(email).orElse(null);
     }
 
     private boolean canManageCourse(AppUser user, Course course) {

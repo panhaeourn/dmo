@@ -480,7 +480,21 @@ public class BakongService {
 
         if (dataObj instanceof Map<?, ?> dataMap) {
             Object responseCode = dataMap.get("responseCode");
-            if (responseCode != null && !"0".equals(String.valueOf(responseCode).trim())) {
+            if (responseCode != null) {
+                String normalizedCode = String.valueOf(responseCode).trim();
+                if (!"0".equals(normalizedCode)) {
+                    return false;
+                }
+
+                // Bakong's official success shape uses responseCode=0 plus a non-null data object.
+                // Treat that as paid immediately instead of relying on response text matching.
+                if (dataMap.get("data") != null) {
+                    return true;
+                }
+            }
+
+            Object errorCode = dataMap.get("errorCode");
+            if (errorCode != null && !"0".equals(String.valueOf(errorCode).trim())) {
                 return false;
             }
         }
@@ -887,7 +901,7 @@ public class BakongService {
 
         final String resolvedEmail = email;
 
-        return appUserRepository.findByEmail(resolvedEmail)
+        return appUserRepository.findByEmailIgnoreCase(resolvedEmail)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + resolvedEmail));
     }
 
