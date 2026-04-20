@@ -391,9 +391,10 @@ public class BakongService {
             throw new IllegalArgumentException("transactionId is required");
         }
 
-        AppUser adminUser = getCurrentUser();
-        if (!"ADMIN".equalsIgnoreCase(adminUser.getRole())) {
-            throw new IllegalStateException("Only admin can manually unlock a payment");
+        AppUser actingUser = getCurrentUser();
+        String actingRole = actingUser.getRole() == null ? "" : actingUser.getRole().trim().toUpperCase();
+        if (!"ADMIN".equals(actingRole) && !"RECEPTIONIST".equals(actingRole)) {
+            throw new IllegalStateException("Only admin or receptionist can manually unlock a payment");
         }
 
         PaymentTransaction tx = paymentTransactionRepository.findByTransactionId(transactionId)
@@ -435,8 +436,8 @@ public class BakongService {
                     history.setCreatedAt(now);
                     history.setUpdatedAt(now);
                     history.setPaidAt(now);
-                    history.setCheckedBy(adminUser.getEmail());
-                    history.setNote("Manual unlock by admin because Bakong verification was blocked");
+                    history.setCheckedBy(actingUser.getEmail());
+                    history.setNote("Manual unlock by staff because Bakong verification was blocked");
 
                     return paymentHistoryRepository.save(history);
                 });
@@ -447,7 +448,7 @@ public class BakongService {
         out.put("unlocked", true);
         out.put("status", "PAID");
         out.put("courseId", tx.getCourseId());
-        out.put("message", "Course manually unlocked by admin");
+        out.put("message", "Course manually unlocked by staff");
         return out;
     }
 
