@@ -52,6 +52,9 @@ public class BakongService {
     @Value("${bakong.token:}")
     private String token;
 
+    @Value("${bakong.api-key:}")
+    private String apiKey;
+
     @Value("${bakong.merchant.bakong-account-id}")
     private String merchantBakongAccountId;
 
@@ -99,6 +102,23 @@ public class BakongService {
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(8000);
         return new RestTemplate(factory);
+    }
+
+    private HttpHeaders createBakongJsonHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.set(HttpHeaders.USER_AGENT, "CitoSchool/1.0");
+
+        if (token != null && !token.isBlank()) {
+            headers.setBearerAuth(token);
+        }
+
+        if (apiKey != null && !apiKey.isBlank()) {
+            headers.set("x-api-key", apiKey);
+        }
+
+        return headers;
     }
 
     public BakongMerchantConfigDto getMerchantConfig() {
@@ -681,17 +701,15 @@ public class BakongService {
             try {
                 System.out.println("=== BAKONG VERIFY ATTEMPT ===");
                 System.out.println("url = " + url);
+                System.out.println("headers = {Authorization=" + (token == null || token.isBlank() ? "missing" : "Bearer ***")
+                        + ", x-api-key=" + (apiKey == null || apiKey.isBlank() ? "missing" : "***")
+                        + ", Content-Type=application/json, Accept=application/json, User-Agent=CitoSchool/1.0}");
+                System.out.println("body = {md5=***}");
                 System.out.println("=============================");
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                headers.setBearerAuth(token);
-                headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-                headers.set(HttpHeaders.USER_AGENT, "CitoSchool/1.0");
 
                 HttpEntity<Map<String, Object>> request = new HttpEntity<>(
                         Map.of("md5", md5),
-                        headers
+                        createBakongJsonHeaders()
                 );
 
                 ResponseEntity<Map> response = restTemplate.exchange(
@@ -804,14 +822,10 @@ public class BakongService {
 
         String url = baseUrl + "/v1/check_bakong_account";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(token);
-
         Map<String, Object> body = new HashMap<>();
         body.put("accountId", accountId);
 
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, createBakongJsonHeaders());
         ResponseEntity<Map> response = restTemplate.exchange(
                 url,
                 HttpMethod.POST,
