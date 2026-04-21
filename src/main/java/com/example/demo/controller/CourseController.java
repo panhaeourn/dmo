@@ -7,8 +7,10 @@ import com.example.demo.entity.Course;
 import com.example.demo.entity.Enrollment;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseRepository;
+import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.repository.EnrollmentRepository;
 import com.example.demo.service.FileService;
+import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,17 +29,20 @@ public class CourseController {
     private final CourseRepository courseRepository;
     private final AppUserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final CourseVideoRepository courseVideoRepository;
     private final FileService fileService;
 
     public CourseController(
             CourseRepository courseRepository,
             AppUserRepository userRepository,
             EnrollmentRepository enrollmentRepository,
+            CourseVideoRepository courseVideoRepository,
             FileService fileService
     ) {
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.courseVideoRepository = courseVideoRepository;
         this.fileService = fileService;
     }
 
@@ -152,6 +157,7 @@ public class CourseController {
     }
 
     @DeleteMapping("/{courseId}")
+    @Transactional
     public ResponseEntity<?> deleteCourse(
             @PathVariable Long courseId,
             Authentication authentication
@@ -172,6 +178,8 @@ public class CourseController {
             return ResponseEntity.status(403).body("Forbidden: not allowed to delete this course");
         }
 
+        courseVideoRepository.deleteByCourseId(courseId);
+        enrollmentRepository.deleteByCourseId(courseId);
         courseRepository.delete(course);
         return ResponseEntity.ok("Course deleted");
     }
