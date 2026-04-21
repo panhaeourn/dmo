@@ -50,7 +50,7 @@ import java.net.http.HttpResponse;
 @Service
 public class BakongService {
 
-    @Value("${bakong.base-url:https://api-bakong.nbc.org.kh}")
+    @Value("${bakong.base-url:https://api-bakong.nbc.gov.kh}")
     private String baseUrl;
 
     @Value("${bakong.alternative-base-urls:}")
@@ -778,18 +778,7 @@ public class BakongService {
     private List<String> resolveBakongBaseUrls() {
         Set<String> orderedUrls = new LinkedHashSet<>();
 
-        addBakongBaseUrl(orderedUrls, "https://api-bakong.nbc.org.kh");
         addBakongBaseUrl(orderedUrls, baseUrl);
-
-        if (baseUrl != null && baseUrl.contains("api-bakong.nbc.gov.kh")) {
-            addBakongBaseUrl(orderedUrls, baseUrl.replace("api-bakong.nbc.gov.kh", "api-bakong.nbc.org.kh"));
-        }
-
-        if (baseUrl != null && baseUrl.contains("api-bakong.nbc.org.kh")) {
-            addBakongBaseUrl(orderedUrls, baseUrl.replace("api-bakong.nbc.org.kh", "api-bakong.nbc.gov.kh"));
-        }
-
-        addBakongBaseUrl(orderedUrls, "https://api-bakong.nbc.gov.kh");
 
         if (alternativeBaseUrls != null && !alternativeBaseUrls.isBlank()) {
             for (String raw : alternativeBaseUrls.split(",")) {
