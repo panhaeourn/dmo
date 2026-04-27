@@ -1,12 +1,15 @@
 package com.example.demo.auth;
 
 import com.example.demo.dto.ClaimReceptionistRequest;
+import com.example.demo.dto.ForgotPasswordRequest;
 import com.example.demo.dto.RegisterRequest;
+import com.example.demo.dto.ResetPasswordRequest;
 import com.example.demo.entity.AppUser;
 import com.example.demo.entity.ReceptionistClaimCode;
 import com.example.demo.jwt.JwtService;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.ReceptionistClaimCodeRepository;
+import com.example.demo.service.PasswordResetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +38,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetService passwordResetService;
 
     @Value("${app.admin-emails:}")
     private String adminEmails;
@@ -92,6 +96,36 @@ public class AuthController {
         } catch (BadCredentialsException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiError("Invalid email or password"));
+        }
+    }
+
+    @PostMapping(value = "/forgot-password", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> forgotPassword(@RequestBody(required = false) ForgotPasswordRequest request) {
+        String email = request == null ? null : request.getEmail();
+        var result = passwordResetService.createResetRequest(email);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping(value = "/reset-password", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        if (request == null || request.getToken() == null || request.getToken().isBlank()) {
+            return ResponseEntity.badRequest().body(new ApiError("Reset token is required."));
+        }
+
+        String newPassword = request.getNewPassword();
+        if (newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body(new ApiError("New password is required."));
+        }
+
+        if (newPassword.trim().length() < 8) {
+            return ResponseEntity.badRequest().body(new ApiError("New password must be at least 8 characters."));
+        }
+
+        try {
+            passwordResetService.resetPassword(request.getToken(), newPassword.trim());
+            return ResponseEntity.ok(new ApiMessage("Password reset successful. You can now log in."));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(new ApiError(ex.getMessage()));
         }
     }
 

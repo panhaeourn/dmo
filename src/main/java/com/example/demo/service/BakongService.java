@@ -362,19 +362,27 @@ public class BakongService {
         try {
             check = checkTransactionByMd5(tx.getBakongMd5());
         } catch (IllegalStateException ex) {
+            String verificationMessage = ex.getMessage() == null
+                    ? "Bakong verification is unavailable right now."
+                    : ex.getMessage();
+            boolean verificationBlocked = isVerificationBlockedMessage(verificationMessage);
+
             System.out.println("=== BAKONG STATUS VERIFY FAILED ===");
             System.out.println("transactionId = " + transactionId);
-            System.out.println("message = " + ex.getMessage());
+            System.out.println("message = " + verificationMessage);
             System.out.println("===================================");
 
             Map<String, Object> out = new HashMap<>();
             out.put("success", true);
             out.put("paid", false);
             out.put("unlocked", false);
-            out.put("status", "PENDING");
+            out.put("status", verificationBlocked ? "VERIFY_BLOCKED" : "PENDING");
             out.put("courseId", tx.getCourseId());
-            out.put("message", "Payment is still being verified by Bakong");
-            out.put("verificationPending", true);
+            out.put("transactionId", tx.getTransactionId());
+            out.put("message", verificationMessage);
+            out.put("verificationPending", !verificationBlocked);
+            out.put("verificationBlocked", verificationBlocked);
+            out.put("manualUnlockRecommended", verificationBlocked);
             return out;
         }
         System.out.println("Bakong raw check response = " + check);
@@ -691,7 +699,7 @@ public class BakongService {
         }
 
         if (token == null || token.isBlank()) {
-            throw new IllegalStateException("bakong.token is empty");
+            throw new IllegalStateException("Bakong verification token is missing on the server.");
         }
 
         IllegalStateException lastError = null;
@@ -759,7 +767,7 @@ public class BakongService {
         String body = responseBody == null ? "" : responseBody.toLowerCase();
 
         if (body.contains("cloudfront") || body.contains("request blocked")) {
-            return "Bakong verification is blocked right now (HTTP " + statusCode + ").";
+            return "Bakong verification is blocked from the hosted server right now (HTTP " + statusCode + ").";
         }
 
         if (statusCode == 401 || statusCode == 403) {
@@ -775,6 +783,15 @@ public class BakongService {
 
     private boolean shouldTryAnotherBakongHost(int statusCode) {
         return statusCode == 401 || statusCode == 403 || statusCode >= 500;
+    }
+
+    private boolean isVerificationBlockedMessage(String message) {
+        String normalized = message == null ? "" : message.trim().toLowerCase();
+        return normalized.contains("blocked")
+                || normalized.contains("denied")
+                || normalized.contains("token")
+                || normalized.contains("unauthorized")
+                || normalized.contains("forbidden");
     }
 
     private List<String> resolveBakongBaseUrls() {

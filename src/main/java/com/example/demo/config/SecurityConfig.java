@@ -61,7 +61,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/register"
+                                "/api/auth/register",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/courses", "/api/courses/**").permitAll()
