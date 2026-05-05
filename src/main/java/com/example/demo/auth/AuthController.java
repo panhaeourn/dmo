@@ -102,14 +102,15 @@ public class AuthController {
     @PostMapping(value = "/forgot-password", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> forgotPassword(@RequestBody(required = false) ForgotPasswordRequest request) {
         String email = request == null ? null : request.getEmail();
-        var result = passwordResetService.createResetRequest(email);
+        String phoneNumber = request == null ? null : request.getPhoneNumber();
+        var result = passwordResetService.createResetRequest(email, phoneNumber);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping(value = "/reset-password", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
-        if (request == null || request.getToken() == null || request.getToken().isBlank()) {
-            return ResponseEntity.badRequest().body(new ApiError("Reset token is required."));
+        if (request == null) {
+            return ResponseEntity.badRequest().body(new ApiError("Reset request is required."));
         }
 
         String newPassword = request.getNewPassword();
@@ -122,7 +123,19 @@ public class AuthController {
         }
 
         try {
-            passwordResetService.resetPassword(request.getToken(), newPassword.trim());
+            if (request.getToken() != null && !request.getToken().isBlank()) {
+                passwordResetService.resetPassword(request.getToken(), newPassword.trim());
+            } else if (request.getFirebaseIdToken() != null && !request.getFirebaseIdToken().isBlank()) {
+                passwordResetService.resetPasswordByFirebaseVerification(
+                        request.getEmail(),
+                        request.getPhoneNumber(),
+                        request.getFirebaseIdToken(),
+                        newPassword.trim()
+                );
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(new ApiError("Firebase verification token is required."));
+            }
             return ResponseEntity.ok(new ApiMessage("Password reset successful. You can now log in."));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(new ApiError(ex.getMessage()));
