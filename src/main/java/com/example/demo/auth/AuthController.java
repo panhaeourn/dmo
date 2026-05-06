@@ -58,9 +58,16 @@ public class AuthController {
 
         String email = request.email.trim().toLowerCase();
         String phoneNumber = normalizePhone(request.phoneNumber);
+        if (phoneNumber == null || !isValidCambodiaPhone(phoneNumber)) {
+            return ResponseEntity.badRequest().body(new ApiError("Phone number must be a valid Cambodia number like +85587676564"));
+        }
 
         if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             return ResponseEntity.badRequest().body(new ApiError("Email already exists"));
+        }
+
+        if (userRepository.findByPhoneNumber(phoneNumber).isPresent()) {
+            return ResponseEntity.badRequest().body(new ApiError("Phone number already exists"));
         }
 
         AppUser user = new AppUser();
@@ -144,17 +151,27 @@ public class AuthController {
 
     private String normalizePhone(String phoneNumber) {
         if (phoneNumber == null) {
-            return "";
+            return null;
         }
 
         String normalized = phoneNumber.replaceAll("[^\\d+]", "");
+        if (normalized.isBlank()) {
+            return null;
+        }
         if (normalized.startsWith("0")) {
             return "+855" + normalized.substring(1);
+        }
+        if (normalized.startsWith("855")) {
+            return "+855" + normalized.substring(3);
         }
         if (!normalized.startsWith("+") && normalized.matches("\\d+")) {
             return "+" + normalized;
         }
         return normalized;
+    }
+
+    private boolean isValidCambodiaPhone(String phoneNumber) {
+        return phoneNumber != null && phoneNumber.matches("^\\+855\\d{8,9}$");
     }
 
     @PostMapping(value = "/logout", produces = "application/json")

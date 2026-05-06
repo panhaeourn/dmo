@@ -327,8 +327,14 @@ public class PasswordResetService {
         }
 
         String normalized = phoneNumber.replaceAll("[^\\d+]", "");
+        if (normalized.isBlank()) {
+            return null;
+        }
         if (normalized.startsWith("0")) {
             return "+855" + normalized.substring(1);
+        }
+        if (normalized.startsWith("855")) {
+            return "+855" + normalized.substring(3);
         }
         if (!normalized.startsWith("+") && normalized.matches("\\d+")) {
             return "+" + normalized;
