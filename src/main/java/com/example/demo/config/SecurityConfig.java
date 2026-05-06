@@ -112,8 +112,8 @@ public class SecurityConfig {
         addOrigin(origins, frontendUrl);
         addOrigin(origins, "http://localhost:5173");
         addOrigin(origins, "http://127.0.0.1:5173");
-        addOrigin(origins, "https://fronted-sbwv.onrender.com");
-        addOrigin(origins, "https://citoapp.org");
+        addOrigin(origins, "https://cito.study");
+        addOrigin(origins, "https://www.cito.study");
 
         Arrays.stream(corsAllowedOrigins.split(","))
                 .forEach(origin -> addOrigin(origins, origin));
