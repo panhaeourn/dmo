@@ -193,10 +193,6 @@ public class PasswordResetService {
         }
 
         if (isFirebasePhoneConfigured()) {
-            if (requestedByEmail) {
-                return ForgotPasswordResult.phoneConfirmation(maskPhone(phoneNumber));
-            }
-
             return ForgotPasswordResult.firebase(
                     maskPhone(phoneNumber),
                     phoneNumber,
@@ -395,14 +391,5 @@ public class PasswordResetService {
             );
         }
 
-        public static ForgotPasswordResult phoneConfirmation(String maskedPhoneNumber) {
-            return new ForgotPasswordResult(
-                    "For security, enter the registered phone number to continue SMS verification.",
-                    null,
-                    maskedPhoneNumber,
-                    "PHONE_CONFIRM",
-                    null
-            );
-        }
     }
 }
