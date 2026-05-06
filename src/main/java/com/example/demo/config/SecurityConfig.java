@@ -19,6 +19,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 @Configuration
@@ -26,6 +28,9 @@ public class SecurityConfig {
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
+
+    @Value("${app.cors.allowed-origins:}")
+    private String corsAllowedOrigins;
 
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
@@ -91,7 +96,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedOrigins(resolveAllowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
@@ -100,6 +105,31 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    private List<String> resolveAllowedOrigins() {
+        LinkedHashSet<String> origins = new LinkedHashSet<>();
+        addOrigin(origins, frontendUrl);
+        addOrigin(origins, "http://localhost:5173");
+        addOrigin(origins, "http://127.0.0.1:5173");
+        addOrigin(origins, "https://fronted-sbwv.onrender.com");
+        addOrigin(origins, "https://citoapp.org");
+
+        Arrays.stream(corsAllowedOrigins.split(","))
+                .forEach(origin -> addOrigin(origins, origin));
+
+        return List.copyOf(origins);
+    }
+
+    private void addOrigin(LinkedHashSet<String> origins, String origin) {
+        if (origin == null) {
+            return;
+        }
+
+        String trimmed = origin.trim();
+        if (!trimmed.isEmpty()) {
+            origins.add(trimmed);
+        }
     }
 
     @Bean
