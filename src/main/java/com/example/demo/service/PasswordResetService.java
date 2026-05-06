@@ -178,9 +178,7 @@ public class PasswordResetService {
     private ForgotPasswordResult createSmsResetRequest(String phoneNumber) {
         AppUser user = appUserRepository.findByPhoneNumber(phoneNumber).orElse(null);
         if (user == null) {
-            return isFirebasePhoneConfigured()
-                    ? ForgotPasswordResult.firebase(maskPhone(phoneNumber), null, false)
-                    : ForgotPasswordResult.generic(null);
+            return ForgotPasswordResult.generic(null);
         }
 
         return createSmsResetRequest(user, false);
@@ -369,7 +367,7 @@ public class PasswordResetService {
     ) {
         public static ForgotPasswordResult generic(String debugResetUrl) {
             return new ForgotPasswordResult(
-                    "If an account with that email exists, a reset link has been prepared.",
+                    "If an account exists for that email or phone number, follow the next step shown on this page.",
                     debugResetUrl,
                     null,
                     "EMAIL",
