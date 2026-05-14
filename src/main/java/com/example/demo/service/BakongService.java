@@ -209,14 +209,15 @@ public class BakongService {
             throw new IllegalArgumentException("courseId is required");
         }
 
-        if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("amount must be greater than 0");
-        }
-
         AppUser currentUser = getCurrentUser();
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course not found"));
+
+        Double coursePrice = course.getPrice();
+        if (coursePrice == null || coursePrice <= 0) {
+            throw new IllegalStateException("Course price is not configured");
+        }
 
         boolean alreadyEnrolled = enrollmentRepository.existsByUserAndCourse(currentUser, course);
         if (alreadyEnrolled) {
@@ -228,7 +229,15 @@ public class BakongService {
             return out;
         }
 
-        Map<String, Object> qrData = generateIndividualKhqr(amount);
+        if (amount != null && Math.abs(amount - coursePrice) > 0.0001d) {
+            System.out.println("=== BAKONG AMOUNT MISMATCH ===");
+            System.out.println("courseId = " + courseId);
+            System.out.println("clientAmount = " + amount);
+            System.out.println("coursePrice = " + coursePrice);
+            System.out.println("==============================");
+        }
+
+        Map<String, Object> qrData = generateIndividualKhqr(coursePrice);
 
         String qr = String.valueOf(qrData.get("qr"));
         String md5 = String.valueOf(qrData.get("md5"));
@@ -244,7 +253,7 @@ public class BakongService {
 
         PaymentTransaction tx = new PaymentTransaction();
         tx.setTransactionId(UUID.randomUUID().toString());
-        tx.setAmount(amount);
+        tx.setAmount(coursePrice);
         tx.setCurrency(normalizedCurrency());
         tx.setStatus("PENDING");
         tx.setCourseId(courseId);
@@ -269,6 +278,7 @@ public class BakongService {
         out.put("transactionId", tx.getTransactionId());
         out.put("qr", qr);
         out.put("md5", md5);
+        out.put("amount", coursePrice);
         out.put("expiresAt", expiresAtMs);
         out.put("remainingSeconds", qrExpirySeconds);
         out.put("courseId", courseId);
@@ -339,20 +349,7 @@ public class BakongService {
             return out;
         }
 
-        if (tx.getExpiresAt() != null && Instant.now().isAfter(tx.getExpiresAt())) {
-            tx.setStatus("EXPIRED");
-            paymentTransactionRepository.save(tx);
-
-            System.out.println("payment status = EXPIRED");
-
-            Map<String, Object> out = new HashMap<>();
-            out.put("success", true);
-            out.put("paid", false);
-            out.put("unlocked", false);
-            out.put("status", "EXPIRED");
-            out.put("courseId", tx.getCourseId());
-            return out;
-        }
+        boolean locallyExpired = tx.getExpiresAt() != null && Instant.now().isAfter(tx.getExpiresAt());
 
         if (tx.getBakongMd5() == null || tx.getBakongMd5().isBlank()) {
             throw new IllegalStateException("Saved payment md5 is empty");
@@ -430,6 +427,21 @@ public class BakongService {
             out.put("paid", true);
             out.put("unlocked", true);
             out.put("status", "PAID");
+            out.put("courseId", tx.getCourseId());
+            return out;
+        }
+
+        if (locallyExpired) {
+            tx.setStatus("EXPIRED");
+            paymentTransactionRepository.save(tx);
+
+            System.out.println("payment status = EXPIRED");
+
+            Map<String, Object> out = new HashMap<>();
+            out.put("success", true);
+            out.put("paid", false);
+            out.put("unlocked", false);
+            out.put("status", "EXPIRED");
             out.put("courseId", tx.getCourseId());
             return out;
         }
