@@ -1,7 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AiChatRequest;
+import com.example.demo.dto.AiChatHistoryResponse;
 import com.example.demo.dto.AiChatResponse;
+import com.example.demo.entity.AiChatMessage;
+import com.example.demo.entity.AppUser;
+import com.example.demo.repository.AiChatMessageRepository;
+import com.example.demo.repository.AppUserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -9,11 +14,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +33,8 @@ public class OpenAiService {
 
     private static final String RESPONSES_URL = "https://api.openai.com/v1/responses";
     private static final int MAX_MESSAGE_LENGTH = 8_000;
+    private static final int MEMORY_DAYS = 3;
+    private static final int MAX_CONTEXT_MESSAGES = 16;
     private static final String SYSTEM_PROMPT = """
             You are the official AI assistant for CITO STUDY.
 
@@ -226,6 +238,8 @@ public class OpenAiService {
             """;
 
     private final RestTemplate restTemplate;
+    private final AppUserRepository appUserRepository;
+    private final AiChatMessageRepository aiChatMessageRepository;
 
     @Value("${openai.api-key:}")
     private String apiKey;
@@ -236,11 +250,32 @@ public class OpenAiService {
     @Value("${openai.max-output-tokens:700}")
     private int maxOutputTokens;
 
-    public OpenAiService(RestTemplate restTemplate) {
+    public OpenAiService(
+            RestTemplate restTemplate,
+            AppUserRepository appUserRepository,
+            AiChatMessageRepository aiChatMessageRepository
+    ) {
         this.restTemplate = restTemplate;
+        this.appUserRepository = appUserRepository;
+        this.aiChatMessageRepository = aiChatMessageRepository;
     }
 
-    public AiChatResponse chat(AiChatRequest request) {
+    public AiChatHistoryResponse history(Authentication authentication) {
+        AppUser user = requireUser(authentication);
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
+        deleteExpiredMessages(cutoff);
+
+        List<AiChatRequest.ChatMessage> messages = aiChatMessageRepository
+                .findByUserAndCreatedAtAfterOrderByCreatedAtAsc(user, cutoff)
+                .stream()
+                .map(this::toDto)
+                .toList();
+
+        return new AiChatHistoryResponse(messages);
+    }
+
+    public AiChatResponse chat(AiChatRequest request, Authentication authentication) {
+        AppUser user = requireUser(authentication);
         String rawMessage = request == null ? null : request.getMessage();
         String message = rawMessage == null ? "" : rawMessage.trim();
         if (message.isBlank()) {
@@ -253,6 +288,12 @@ public class OpenAiService {
             throw new IllegalStateException("OpenAI API key is not configured.");
         }
 
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
+        deleteExpiredMessages(cutoff);
+        saveMessage(user, "user", message);
+        List<AiChatMessage> recentMessages = aiChatMessageRepository
+                .findByUserAndCreatedAtAfterOrderByCreatedAtAsc(user, cutoff);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -260,7 +301,7 @@ public class OpenAiService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("instructions", SYSTEM_PROMPT);
-        body.put("input", buildInput(request, message));
+        body.put("input", buildInput(recentMessages, message));
         body.put("max_output_tokens", maxOutputTokens);
 
         try {
@@ -275,6 +316,7 @@ public class OpenAiService {
             if (reply.isBlank()) {
                 throw new IllegalStateException("OpenAI returned an empty response.");
             }
+            saveMessage(user, "assistant", reply);
             return new AiChatResponse(reply, model);
         } catch (HttpStatusCodeException ex) {
             throw new IllegalStateException(readOpenAiError(ex), ex);
@@ -283,12 +325,9 @@ public class OpenAiService {
         }
     }
 
-    private List<Map<String, String>> buildInput(AiChatRequest request, String fallbackMessage) {
-        List<AiChatRequest.ChatMessage> messages =
-                request == null || request.getMessages() == null ? List.of() : request.getMessages();
-
-        List<Map<String, String>> input = messages.stream()
-                .filter(item -> item != null && item.getText() != null && !item.getText().isBlank())
+    private List<Map<String, String>> buildInput(List<AiChatMessage> recentMessages, String fallbackMessage) {
+        List<Map<String, String>> input = recentMessages.stream()
+                .filter(item -> item.getText() != null && !item.getText().isBlank())
                 .map(item -> {
                     String role = "assistant".equalsIgnoreCase(item.getRole()) ? "assistant" : "user";
                     return Map.of(
@@ -306,6 +345,57 @@ public class OpenAiService {
                 "role", "user",
                 "content", fallbackMessage
         ));
+    }
+
+    private AppUser requireUser(Authentication authentication) {
+        String email = extractEmail(authentication);
+        if (email == null || email.isBlank()) {
+            throw new AccessDeniedException("Unauthorized");
+        }
+
+        return appUserRepository.findByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new AccessDeniedException("User not found"));
+    }
+
+    private String extractEmail(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof OAuth2User oauth2User) {
+            Object email = oauth2User.getAttributes().get("email");
+            return email == null ? null : String.valueOf(email);
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+
+        String name = authentication.getName();
+        return "anonymousUser".equals(name) ? null : name;
+    }
+
+    private void saveMessage(AppUser user, String role, String text) {
+        AiChatMessage message = new AiChatMessage();
+        message.setUser(user);
+        message.setRole(role);
+        message.setText(text);
+        aiChatMessageRepository.save(message);
+    }
+
+    private AiChatRequest.ChatMessage toDto(AiChatMessage message) {
+        AiChatRequest.ChatMessage dto = new AiChatRequest.ChatMessage();
+        dto.setRole(message.getRole());
+        dto.setText(message.getText());
+        return dto;
+    }
+
+    private void deleteExpiredMessages(LocalDateTime cutoff) {
+        try {
+            aiChatMessageRepository.deleteByCreatedAtBefore(cutoff);
+        } catch (Exception ignored) {
+            // Expired memory cleanup should not block the chat experience.
+        }
     }
 
     private String extractReply(JsonNode json) {
