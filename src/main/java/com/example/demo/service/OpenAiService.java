@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -260,6 +261,7 @@ public class OpenAiService {
         this.aiChatMessageRepository = aiChatMessageRepository;
     }
 
+    @Transactional(readOnly = true)
     public AiChatHistoryResponse history(Authentication authentication) {
         AppUser user = requireUser(authentication);
         LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
@@ -274,6 +276,7 @@ public class OpenAiService {
         return new AiChatHistoryResponse(messages);
     }
 
+    @Transactional
     public AiChatResponse chat(AiChatRequest request, Authentication authentication) {
         AppUser user = requireUser(authentication);
         String rawMessage = request == null ? null : request.getMessage();

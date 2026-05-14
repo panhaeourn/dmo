@@ -8,7 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -35,7 +34,6 @@ public class AiChatMessage {
     @Column(nullable = false, length = 20)
     private String role;
 
-    @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
     private String text;
 
