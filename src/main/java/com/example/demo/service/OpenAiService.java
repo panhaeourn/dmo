@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.AiChatRequest;
 import com.example.demo.dto.AiChatResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -218,6 +220,9 @@ public class OpenAiService {
             - Always prioritize safety and accuracy.
             - Keep answers clear, friendly, and practical.
             - Never act like you have system access unless explicitly provided.
+            - Use the previous chat messages as context. If the user gives a short answer like "beginner", "easy", "10", or "yes", treat it as an answer to your most recent question.
+            - Do not restart the conversation when the user gives a partial answer. Continue the original task.
+            - If the user asks for a PDF quiz or PDF homework, create complete PDF-ready content in the chat. Do not claim that a downloadable PDF file was created unless the application provides a PDF export tool.
             """;
 
     private final RestTemplate restTemplate;
@@ -235,7 +240,8 @@ public class OpenAiService {
         this.restTemplate = restTemplate;
     }
 
-    public AiChatResponse chat(String rawMessage) {
+    public AiChatResponse chat(AiChatRequest request) {
+        String rawMessage = request == null ? null : request.getMessage();
         String message = rawMessage == null ? "" : rawMessage.trim();
         if (message.isBlank()) {
             throw new IllegalArgumentException("Message is required.");
@@ -254,7 +260,7 @@ public class OpenAiService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("instructions", SYSTEM_PROMPT);
-        body.put("input", message);
+        body.put("input", buildInput(request, message));
         body.put("max_output_tokens", maxOutputTokens);
 
         try {
@@ -275,6 +281,31 @@ public class OpenAiService {
         } catch (RestClientException ex) {
             throw new IllegalStateException("Unable to reach OpenAI right now.", ex);
         }
+    }
+
+    private List<Map<String, String>> buildInput(AiChatRequest request, String fallbackMessage) {
+        List<AiChatRequest.ChatMessage> messages =
+                request == null || request.getMessages() == null ? List.of() : request.getMessages();
+
+        List<Map<String, String>> input = messages.stream()
+                .filter(item -> item != null && item.getText() != null && !item.getText().isBlank())
+                .map(item -> {
+                    String role = "assistant".equalsIgnoreCase(item.getRole()) ? "assistant" : "user";
+                    return Map.of(
+                            "role", role,
+                            "content", item.getText().trim()
+                    );
+                })
+                .toList();
+
+        if (!input.isEmpty()) {
+            return input.size() > 12 ? input.subList(input.size() - 12, input.size()) : input;
+        }
+
+        return List.of(Map.of(
+                "role", "user",
+                "content", fallbackMessage
+        ));
     }
 
     private String extractReply(JsonNode json) {

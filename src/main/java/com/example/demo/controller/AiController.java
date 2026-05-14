@@ -22,7 +22,7 @@ public class AiController {
     @PostMapping(value = "/chat", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> chat(@RequestBody AiChatRequest request) {
         try {
-            return ResponseEntity.ok(openAiService.chat(request == null ? null : request.getMessage()));
+            return ResponseEntity.ok(openAiService.chat(request));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(new ApiError(ex.getMessage()));
         } catch (IllegalStateException ex) {
