@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+    private static final String OAUTH2_PASSWORD_SENTINEL = "OAUTH2_USER";
 
     private final ReceptionistClaimCodeRepository receptionistClaimCodeRepository;
     private final AuthenticationManager authenticationManager;
@@ -293,8 +294,33 @@ public class AuthController {
 
         syncAdminRoleIfConfigured(user);
 
-        user.setPassword(null);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(toMeResponse(user));
+    }
+
+    private MeResponse toMeResponse(AppUser user) {
+        boolean passwordLoginEnabled = hasCitoPassword(user);
+        return new MeResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getUsername(),
+                user.getName(),
+                user.getRole(),
+                passwordLoginEnabled ? "CITO" : "GOOGLE",
+                passwordLoginEnabled
+        );
+    }
+
+    private boolean hasCitoPassword(AppUser user) {
+        String password = user == null ? null : user.getPassword();
+        if (password == null || password.isBlank()) {
+            return false;
+        }
+
+        try {
+            return !passwordEncoder.matches(OAUTH2_PASSWORD_SENTINEL, password);
+        } catch (IllegalArgumentException ex) {
+            return true;
+        }
     }
 
     private String extractEmail(Authentication authentication) {
@@ -383,6 +409,17 @@ public class AuthController {
         public TokenResponse(String token) {
             this.token = token;
         }
+    }
+
+    public record MeResponse(
+            Long id,
+            String email,
+            String username,
+            String name,
+            String role,
+            String authProvider,
+            boolean passwordLoginEnabled
+    ) {
     }
 
     public static class ApiError {
