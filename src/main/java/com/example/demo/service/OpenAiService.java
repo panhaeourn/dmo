@@ -251,6 +251,9 @@ public class OpenAiService {
     @Value("${openai.max-output-tokens:700}")
     private int maxOutputTokens;
 
+    @Value("${openai.reasoning-effort:minimal}")
+    private String reasoningEffort;
+
     public OpenAiService(
             RestTemplate restTemplate,
             AppUserRepository appUserRepository,
@@ -306,6 +309,7 @@ public class OpenAiService {
         body.put("instructions", SYSTEM_PROMPT);
         body.put("input", buildInput(recentMessages, message));
         body.put("max_output_tokens", maxOutputTokens);
+        applyReasoningEffort(body);
 
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -326,6 +330,47 @@ public class OpenAiService {
         } catch (RestClientException ex) {
             throw new IllegalStateException("Unable to reach OpenAI right now.", ex);
         }
+    }
+
+    private void applyReasoningEffort(Map<String, Object> body) {
+        String effort = normalizeReasoningEffort(reasoningEffort);
+        if (effort == null || !supportsReasoningEffort(model, effort)) {
+            return;
+        }
+
+        body.put("reasoning", Map.of("effort", effort));
+    }
+
+    private String normalizeReasoningEffort(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String effort = value.trim().toLowerCase();
+        return switch (effort) {
+            case "none", "minimal", "low", "medium", "high" -> effort;
+            default -> null;
+        };
+    }
+
+    private boolean supportsReasoningEffort(String modelName, String effort) {
+        if (modelName == null || modelName.isBlank()) {
+            return false;
+        }
+
+        String normalizedModel = modelName.trim().toLowerCase();
+        if (normalizedModel.startsWith("gpt-5.1")) {
+            return !"minimal".equals(effort);
+        }
+
+        if ("none".equals(effort)) {
+            return false;
+        }
+
+        return normalizedModel.equals("gpt-5")
+                || normalizedModel.startsWith("gpt-5-")
+                || normalizedModel.startsWith("gpt-5.")
+                || normalizedModel.startsWith("o");
     }
 
     private List<Map<String, String>> buildInput(List<AiChatMessage> recentMessages, String fallbackMessage) {
