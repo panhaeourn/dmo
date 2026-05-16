@@ -15,6 +15,12 @@ public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, Lo
             LocalDateTime createdAt
     );
 
+    long countByUserAndRoleAndCreatedAtAfter(
+            AppUser user,
+            String role,
+            LocalDateTime createdAt
+    );
+
     @Transactional
     long deleteByCreatedAtBefore(LocalDateTime createdAt);
 }

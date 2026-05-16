@@ -146,6 +146,9 @@ public class OpenAiService {
     @Value("${openai.reasoning-effort:minimal}")
     private String reasoningEffort;
 
+    @Value("${openai.daily-message-limit:100}")
+    private int dailyMessageLimit;
+
     public OpenAiService(
             RestTemplate restTemplate,
             AppUserRepository appUserRepository,
@@ -186,6 +189,8 @@ public class OpenAiService {
             throw new IllegalStateException("OpenAI API key is not configured.");
         }
 
+        enforceDailyMessageLimit(user);
+
         LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
         deleteExpiredMessages(cutoff);
         saveMessage(user, "user", message);
@@ -221,6 +226,23 @@ public class OpenAiService {
             throw new IllegalStateException(readOpenAiError(ex), ex);
         } catch (RestClientException ex) {
             throw new IllegalStateException("Unable to reach OpenAI right now.", ex);
+        }
+    }
+
+    private void enforceDailyMessageLimit(AppUser user) {
+        if (dailyMessageLimit <= 0) {
+            return;
+        }
+
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        long usedToday = aiChatMessageRepository.countByUserAndRoleAndCreatedAtAfter(
+                user,
+                "user",
+                startOfDay
+        );
+
+        if (usedToday >= dailyMessageLimit) {
+            throw new AiRateLimitException("Daily AI message limit reached. Please try again tomorrow.");
         }
     }
 
@@ -263,6 +285,12 @@ public class OpenAiService {
                 || normalizedModel.startsWith("gpt-5-")
                 || normalizedModel.startsWith("gpt-5.")
                 || normalizedModel.startsWith("o");
+    }
+
+    public static class AiRateLimitException extends RuntimeException {
+        public AiRateLimitException(String message) {
+            super(message);
+        }
     }
 
     private List<Map<String, String>> buildInput(List<AiChatMessage> recentMessages, String fallbackMessage) {
