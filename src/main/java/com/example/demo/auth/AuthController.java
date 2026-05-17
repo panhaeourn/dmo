@@ -21,10 +21,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,9 +46,16 @@ public class AuthController {
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetService passwordResetService;
+    private final RestTemplate restTemplate;
 
     @Value("${app.admin-emails:}")
     private String adminEmails;
+
+    @Value("${spring.security.oauth2.client.registration.google.client-id:}")
+    private String googleClientId;
+
+    @Value("${app.google.android-client-id:}")
+    private String googleAndroidClientId;
 
     @PostMapping(value = "/register", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -323,6 +336,61 @@ public class AuthController {
         }
     }
 
+    @PostMapping(value = "/google-mobile", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> googleMobileLogin(
+            @RequestBody GoogleMobileLoginRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest,
+            jakarta.servlet.http.HttpServletResponse httpResponse
+    ) {
+        if (request == null || request.idToken == null || request.idToken.isBlank()) {
+            return ResponseEntity.badRequest().body(new ApiError("Google ID token is required"));
+        }
+
+        Map<?, ?> tokenInfo;
+        try {
+            tokenInfo = verifyGoogleIdToken(request.idToken.trim());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(ex.getMessage()));
+        }
+
+        String audience = stringValue(tokenInfo.get("aud"));
+        if (!isAllowedGoogleAudience(audience)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Google token audience is not allowed"));
+        }
+
+        String emailVerified = stringValue(tokenInfo.get("email_verified"));
+        if (!"true".equalsIgnoreCase(emailVerified)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Google email is not verified"));
+        }
+
+        String email = normalizeEmail(stringValue(tokenInfo.get("email")));
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Google email is required"));
+        }
+
+        String displayName = stringValue(tokenInfo.get("name"));
+        if (displayName == null || displayName.isBlank()) {
+            displayName = email;
+        }
+        String finalDisplayName = displayName;
+
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
+            AppUser created = new AppUser();
+            created.setEmail(email);
+            created.setUsername(finalDisplayName);
+            created.setName(finalDisplayName);
+            created.setPassword(passwordEncoder.encode(OAUTH2_PASSWORD_SENTINEL));
+            created.setRole(isConfiguredAdmin(email) ? "ADMIN" : "USER");
+            return userRepository.save(created);
+        });
+
+        syncAdminRoleIfConfigured(user);
+
+        String token = jwtService.generateToken(email);
+        addAccessTokenCookie(httpRequest, httpResponse, token, 60 * 60);
+        return ResponseEntity.ok(new TokenResponse(token));
+    }
+
     private String extractEmail(Authentication authentication) {
         Object principal = authentication.getPrincipal();
 
@@ -395,6 +463,46 @@ public class AuthController {
                 .collect(Collectors.toSet());
     }
 
+    private Map<?, ?> verifyGoogleIdToken(String idToken) {
+        URI uri = UriComponentsBuilder
+                .fromUriString("https://oauth2.googleapis.com/tokeninfo")
+                .queryParam("id_token", idToken)
+                .build()
+                .toUri();
+
+        try {
+            var response = restTemplate.getForEntity(uri, Map.class);
+            Map<?, ?> body = response.getBody();
+            if (body == null || body.isEmpty()) {
+                throw new IllegalArgumentException("Invalid Google token");
+            }
+            return body;
+        } catch (RestClientException ex) {
+            throw new IllegalArgumentException("Invalid Google token");
+        }
+    }
+
+    private boolean isAllowedGoogleAudience(String audience) {
+        if (audience == null || audience.isBlank()) {
+            return false;
+        }
+
+        LinkedHashSet<String> allowed = new LinkedHashSet<>();
+        addAllowedAudience(allowed, googleClientId);
+        addAllowedAudience(allowed, googleAndroidClientId);
+        return allowed.contains(audience.trim());
+    }
+
+    private void addAllowedAudience(LinkedHashSet<String> allowed, String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            allowed.add(value.trim());
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
     private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase();
     }
@@ -402,6 +510,10 @@ public class AuthController {
     public static class LoginRequest {
         public String email;
         public String password;
+    }
+
+    public static class GoogleMobileLoginRequest {
+        public String idToken;
     }
 
     public static class TokenResponse {
