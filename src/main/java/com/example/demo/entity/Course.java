@@ -19,6 +19,16 @@ public class Course {
 
     private String videoFileName;
 
+    private String teacherPhotoFileName;
+
+    private Double teacherPhotoPositionX = 50.0;
+
+    private Double teacherPhotoPositionY = 0.0;
+
+    private Double teacherPhotoBottomDarkness = 90.0;
+
+    private Double teacherPhotoScale = 1.0;
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
@@ -48,6 +58,21 @@ public class Course {
 
     public String getVideoFileName() { return videoFileName; }
     public void setVideoFileName(String videoFileName) { this.videoFileName = videoFileName; }
+
+    public String getTeacherPhotoFileName() { return teacherPhotoFileName; }
+    public void setTeacherPhotoFileName(String teacherPhotoFileName) { this.teacherPhotoFileName = teacherPhotoFileName; }
+
+    public Double getTeacherPhotoPositionX() { return teacherPhotoPositionX; }
+    public void setTeacherPhotoPositionX(Double teacherPhotoPositionX) { this.teacherPhotoPositionX = teacherPhotoPositionX; }
+
+    public Double getTeacherPhotoPositionY() { return teacherPhotoPositionY; }
+    public void setTeacherPhotoPositionY(Double teacherPhotoPositionY) { this.teacherPhotoPositionY = teacherPhotoPositionY; }
+
+    public Double getTeacherPhotoBottomDarkness() { return teacherPhotoBottomDarkness; }
+    public void setTeacherPhotoBottomDarkness(Double teacherPhotoBottomDarkness) { this.teacherPhotoBottomDarkness = teacherPhotoBottomDarkness; }
+
+    public Double getTeacherPhotoScale() { return teacherPhotoScale; }
+    public void setTeacherPhotoScale(Double teacherPhotoScale) { this.teacherPhotoScale = teacherPhotoScale; }
 
     public AppUser getUser() { return user; }
     public void setUser(AppUser user) { this.user = user; }

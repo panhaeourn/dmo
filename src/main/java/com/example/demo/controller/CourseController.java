@@ -216,6 +216,77 @@ public class CourseController {
         return ResponseEntity.ok(toResponse(saved, enrolled));
     }
 
+    @PostMapping(value = "/{courseId}/teacher-photo", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadTeacherPhoto(
+            @PathVariable Long courseId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "positionX", required = false) Double positionX,
+            @RequestParam(value = "positionY", required = false) Double positionY,
+            @RequestParam(value = "bottomDarkness", required = false) Double bottomDarkness,
+            @RequestParam(value = "scale", required = false) Double scale,
+            Authentication authentication
+    ) throws Exception {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+
+        AppUser user = findAuthenticatedUser(authentication);
+        if (user == null) {
+            return ResponseEntity.status(401).body("User not found");
+        }
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        if (!canManageCourse(user, course)) {
+            return ResponseEntity.status(403).body("Forbidden: not allowed to update this course photo");
+        }
+
+        String filename = fileService.upload(file);
+        course.setTeacherPhotoFileName(filename);
+        applyTeacherPhotoLayout(course, positionX, positionY, bottomDarkness, scale);
+
+        Course saved = courseRepository.save(course);
+        boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
+
+        return ResponseEntity.ok(toResponse(saved, enrolled));
+    }
+
+    @PatchMapping("/{courseId}/teacher-photo")
+    public ResponseEntity<?> updateTeacherPhotoLayout(
+            @PathVariable Long courseId,
+            @RequestParam(value = "positionX", required = false) Double positionX,
+            @RequestParam(value = "positionY", required = false) Double positionY,
+            @RequestParam(value = "bottomDarkness", required = false) Double bottomDarkness,
+            @RequestParam(value = "scale", required = false) Double scale,
+            Authentication authentication
+    ) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+
+        AppUser user = findAuthenticatedUser(authentication);
+        if (user == null) {
+            return ResponseEntity.status(401).body("User not found");
+        }
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        if (!canManageCourse(user, course)) {
+            return ResponseEntity.status(403).body("Forbidden: not allowed to update this course photo");
+        }
+
+        applyTeacherPhotoLayout(course, positionX, positionY, bottomDarkness, scale);
+
+        Course saved = courseRepository.save(course);
+        boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
+
+        return ResponseEntity.ok(toResponse(saved, enrolled));
+    }
+
     private String extractEmail(Authentication authentication) {
         try {
             if (authentication == null) return null;
@@ -255,10 +326,36 @@ public class CourseController {
                 && user.getEmail().equalsIgnoreCase(course.getUser().getEmail());
     }
 
+    private void applyTeacherPhotoLayout(
+            Course course,
+            Double positionX,
+            Double positionY,
+            Double bottomDarkness,
+            Double scale
+    ) {
+        if (positionX != null) {
+            course.setTeacherPhotoPositionX(positionX);
+        }
+        if (positionY != null) {
+            course.setTeacherPhotoPositionY(positionY);
+        }
+        if (bottomDarkness != null) {
+            course.setTeacherPhotoBottomDarkness(bottomDarkness);
+        }
+        if (scale != null) {
+            course.setTeacherPhotoScale(scale);
+        }
+    }
+
     private CourseResponse toResponse(Course course, boolean enrolled) {
         String videoUrl = null;
         if (course.getVideoFileName() != null && !course.getVideoFileName().isBlank()) {
             videoUrl = "/files/" + course.getVideoFileName();
+        }
+
+        String teacherPhotoUrl = null;
+        if (course.getTeacherPhotoFileName() != null && !course.getTeacherPhotoFileName().isBlank()) {
+            teacherPhotoUrl = "/files/" + course.getTeacherPhotoFileName();
         }
 
         return new CourseResponse(
@@ -268,6 +365,12 @@ public class CourseController {
                 course.getPrice(),
                 course.getVideoFileName(),
                 videoUrl,
+                course.getTeacherPhotoFileName(),
+                teacherPhotoUrl,
+                course.getTeacherPhotoPositionX(),
+                course.getTeacherPhotoPositionY(),
+                course.getTeacherPhotoBottomDarkness(),
+                course.getTeacherPhotoScale(),
                 enrolled
         );
     }
