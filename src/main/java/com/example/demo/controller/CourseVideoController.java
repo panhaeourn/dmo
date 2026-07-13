@@ -6,6 +6,10 @@ import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.service.FileService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/course-videos")
 @RequiredArgsConstructor
+@Slf4j
 public class CourseVideoController {
 
     private final CourseRepository courseRepository;
@@ -51,5 +56,24 @@ public class CourseVideoController {
     @GetMapping("/course/{courseId}")
     public List<CourseVideo> getVideosByCourse(@PathVariable Long courseId) {
         return courseVideoRepository.findByCourseIdOrderBySortOrderAscIdAsc(courseId);
+    }
+
+    @DeleteMapping("/{videoId}")
+    public ResponseEntity<Void> deleteVideo(@PathVariable Long videoId) {
+        CourseVideo video = courseVideoRepository.findById(videoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found"));
+
+        courseVideoRepository.delete(video);
+
+        String fileName = video.getFileName();
+        if (fileName != null && !fileName.isBlank()) {
+            try {
+                fileService.delete(fileName);
+            } catch (Exception exception) {
+                log.warn("Deleted lesson {} but could not remove R2 object {}", videoId, fileName, exception);
+            }
+        }
+
+        return ResponseEntity.noContent().build();
     }
 }

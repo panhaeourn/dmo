@@ -4,6 +4,7 @@ import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.ObjectWriteResponse;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +86,16 @@ public class FileService {
         FileMetadata metadata = new FileMetadata(stat.size(), stat.contentType(), stat.etag());
         metadataCache.put(fileName, metadata);
         return metadata;
+    }
+
+    public void delete(String fileName) throws Exception {
+        storageClient.removeObject(
+                RemoveObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(fileName)
+                        .build()
+        );
+        metadataCache.remove(fileName);
     }
 
     public record FileMetadata(long size, String contentType, String etag) {
