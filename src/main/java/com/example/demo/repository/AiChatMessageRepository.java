@@ -10,7 +10,12 @@ import java.util.List;
 
 public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, Long> {
 
-    List<AiChatMessage> findByUserAndCreatedAtAfterOrderByCreatedAtAsc(
+    List<AiChatMessage> findTop50ByUserAndCreatedAtAfterOrderByCreatedAtDesc(
+            AppUser user,
+            LocalDateTime createdAt
+    );
+
+    List<AiChatMessage> findTop16ByUserAndCreatedAtAfterOrderByCreatedAtDesc(
             AppUser user,
             LocalDateTime createdAt
     );

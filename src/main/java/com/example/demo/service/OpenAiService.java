@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -25,6 +26,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -235,6 +238,28 @@ public class OpenAiService {
             FINAL RULE:
             Always prioritize helping students learn safely, clearly, and practically.
             """;
+    private static final String FAST_SYSTEM_PROMPT = """
+            You are CITO AI, the study assistant for CITO STUDY.
+
+            Answer the user's latest question directly, clearly, and briefly. Use previous
+            messages as context, especially when the user replies with a short answer. Most
+            answers should stay under 180 words unless the user explicitly asks for a full
+            roadmap, quiz, homework, or detailed explanation.
+
+            Reply in English when the latest message is mostly English and Khmer when it is
+            mostly Khmer. Keep technical terms natural. Explain difficult ideas step by step,
+            use a practical example when useful, and ask at most one necessary question.
+
+            CITO STUDY supports courses, enrollment, student dashboards, KHQR payments,
+            attendance, quizzes, homework, progress tracking, and AI study help. Never invent
+            private student data, grades, enrollment, or payment status. Never reveal secrets.
+            Payment is successful only when the backend confirms it.
+
+            For quizzes with missing settings, default to beginner, 10 mixed questions, with
+            answers. For homework, include objective, instructions, requirements, submission,
+            and expected output. For coding errors, state the likely cause first and then show
+            the smallest practical fix. Use short paragraphs or numbered steps, not tables.
+            """;
 
     private final RestTemplate restTemplate;
     private final AppUserRepository appUserRepository;
@@ -269,10 +294,9 @@ public class OpenAiService {
     public AiChatHistoryResponse history(Authentication authentication) {
         AppUser user = requireUser(authentication);
         LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
-        deleteExpiredMessages(cutoff);
 
-        List<AiChatRequest.ChatMessage> messages = aiChatMessageRepository
-                .findByUserAndCreatedAtAfterOrderByCreatedAtAsc(user, cutoff)
+        List<AiChatRequest.ChatMessage> messages = oldestFirst(aiChatMessageRepository
+                .findTop50ByUserAndCreatedAtAfterOrderByCreatedAtDesc(user, cutoff))
                 .stream()
                 .map(this::toDto)
                 .toList();
@@ -280,7 +304,6 @@ public class OpenAiService {
         return new AiChatHistoryResponse(messages);
     }
 
-    @Transactional
     public AiChatResponse chat(AiChatRequest request, Authentication authentication) {
         AppUser user = requireUser(authentication);
         String rawMessage = request == null ? null : request.getMessage();
@@ -298,10 +321,9 @@ public class OpenAiService {
         enforceDailyMessageLimit(user);
 
         LocalDateTime cutoff = LocalDateTime.now().minusDays(MEMORY_DAYS);
-        deleteExpiredMessages(cutoff);
         saveMessage(user, "user", message);
-        List<AiChatMessage> recentMessages = aiChatMessageRepository
-                .findByUserAndCreatedAtAfterOrderByCreatedAtAsc(user, cutoff);
+        List<AiChatMessage> recentMessages = oldestFirst(aiChatMessageRepository
+                .findTop16ByUserAndCreatedAtAfterOrderByCreatedAtDesc(user, cutoff));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(apiKey);
@@ -309,7 +331,7 @@ public class OpenAiService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("instructions", SYSTEM_PROMPT);
+        body.put("instructions", FAST_SYSTEM_PROMPT);
         body.put("input", buildInput(recentMessages, message));
         body.put("max_output_tokens", maxOutputTokens);
         applyReasoningEffort(body);
@@ -464,12 +486,16 @@ public class OpenAiService {
         return dto;
     }
 
-    private void deleteExpiredMessages(LocalDateTime cutoff) {
-        try {
-            aiChatMessageRepository.deleteByCreatedAtBefore(cutoff);
-        } catch (Exception ignored) {
-            // Expired memory cleanup should not block the chat experience.
-        }
+    @Scheduled(cron = "${openai.cleanup-cron:0 20 3 * * *}")
+    @Transactional
+    public void deleteExpiredMessages() {
+        aiChatMessageRepository.deleteByCreatedAtBefore(LocalDateTime.now().minusDays(MEMORY_DAYS));
+    }
+
+    private List<AiChatMessage> oldestFirst(List<AiChatMessage> newestFirst) {
+        List<AiChatMessage> messages = new ArrayList<>(newestFirst);
+        Collections.reverse(messages);
+        return messages;
     }
 
     private String extractReply(JsonNode json) {
