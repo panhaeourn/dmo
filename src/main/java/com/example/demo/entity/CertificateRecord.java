@@ -33,6 +33,9 @@ public class CertificateRecord {
     @Column(name = "recipient_name_english", length = 255)
     private String recipientNameEnglish;
 
+    @Column(name = "birth_date", length = 100)
+    private String birthDate;
+
     @Column(name = "course_name", nullable = false, length = 500)
     private String courseName;
 
@@ -76,6 +79,8 @@ public class CertificateRecord {
     public void setRecipientNameKhmer(String recipientNameKhmer) { this.recipientNameKhmer = recipientNameKhmer; }
     public String getRecipientNameEnglish() { return recipientNameEnglish; }
     public void setRecipientNameEnglish(String recipientNameEnglish) { this.recipientNameEnglish = recipientNameEnglish; }
+    public String getBirthDate() { return birthDate; }
+    public void setBirthDate(String birthDate) { this.birthDate = birthDate; }
     public String getCourseName() { return courseName; }
     public void setCourseName(String courseName) { this.courseName = courseName; }
     public String getIssueDate() { return issueDate; }

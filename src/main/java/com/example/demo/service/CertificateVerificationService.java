@@ -113,6 +113,7 @@ public class CertificateVerificationService {
             record.setIssuanceKey(issuanceKey);
             record.setRecipientNameKhmer(khmerName);
             record.setRecipientNameEnglish(englishName);
+            record.setBirthDate(required(item.birthDate(), "Birth date", 100));
             record.setCourseName(required(item.courseName(), "Course", 500));
             record.setIssueDate(required(item.issueDate(), "Issue date", 100));
             record.setIssuedByEmail(clean(issuedBy, 255));
@@ -145,6 +146,7 @@ public class CertificateVerificationService {
                 record.getCertificateNumber(),
                 record.getRecipientNameKhmer(),
                 record.getRecipientNameEnglish(),
+                record.getBirthDate(),
                 record.getCourseName(),
                 record.getIssueDate(),
                 record.getIssuedAt(),

@@ -10,6 +10,7 @@ public record CertificateVerificationResponse(
         String certificateNumber,
         String recipientNameKhmer,
         String recipientNameEnglish,
+        String birthDate,
         String courseName,
         String issueDate,
         LocalDateTime issuedAt,

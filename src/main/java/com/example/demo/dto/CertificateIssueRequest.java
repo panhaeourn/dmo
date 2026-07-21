@@ -7,6 +7,7 @@ public record CertificateIssueRequest(List<CertificateIssueItem> certificates) {
             String issuanceKey,
             String recipientNameKhmer,
             String recipientNameEnglish,
+            String birthDate,
             String courseName,
             String issueDate
     ) {

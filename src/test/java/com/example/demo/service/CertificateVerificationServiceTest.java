@@ -52,6 +52,7 @@ class CertificateVerificationServiceTest {
         assertThat(result.get(0).published()).isFalse();
         assertThat(result.get(0).certificateNumber()).startsWith("CITO-2026-");
         assertThat(result.get(0).recipientNameEnglish()).isEqualTo("Sok Dara");
+        assertThat(result.get(0).birthDate()).isEqualTo("15 August 2005");
         assertThat(result.get(0).courseName()).isEqualTo("Microsoft Excel");
     }
 
@@ -115,6 +116,7 @@ class CertificateVerificationServiceTest {
                 issuanceKey,
                 "សុខ ដារ៉ា",
                 "Sok Dara",
+                "15 August 2005",
                 "Microsoft Excel",
                 "21 July 2026"
         )));
@@ -127,6 +129,7 @@ class CertificateVerificationServiceTest {
         record.setIssuanceKey("batch-1");
         record.setRecipientNameKhmer("សុខ ដារ៉ា");
         record.setRecipientNameEnglish("Sok Dara");
+        record.setBirthDate("15 August 2005");
         record.setCourseName("Microsoft Excel");
         record.setIssueDate("21 July 2026");
         record.setIssuedAt(LocalDateTime.of(2026, 7, 21, 10, 0));
