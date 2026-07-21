@@ -45,6 +45,13 @@ public class CertificateRecord {
     @Column(name = "issued_by_email", nullable = false, length = 255)
     private String issuedByEmail;
 
+    // The database default preserves certificates created before draft publishing was introduced.
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean published;
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
     @Column(nullable = false)
     private boolean revoked;
 
@@ -77,6 +84,10 @@ public class CertificateRecord {
     public void setIssuedAt(LocalDateTime issuedAt) { this.issuedAt = issuedAt; }
     public String getIssuedByEmail() { return issuedByEmail; }
     public void setIssuedByEmail(String issuedByEmail) { this.issuedByEmail = issuedByEmail; }
+    public boolean isPublished() { return published; }
+    public void setPublished(boolean published) { this.published = published; }
+    public LocalDateTime getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(LocalDateTime publishedAt) { this.publishedAt = publishedAt; }
     public boolean isRevoked() { return revoked; }
     public void setRevoked(boolean revoked) { this.revoked = revoked; }
     public LocalDateTime getRevokedAt() { return revokedAt; }

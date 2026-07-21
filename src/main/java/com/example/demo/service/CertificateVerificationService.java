@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.CertificateIssueRequest;
+import com.example.demo.dto.CertificatePublishRequest;
 import com.example.demo.dto.CertificateVerificationResponse;
 import com.example.demo.entity.CertificateRecord;
 import com.example.demo.repository.CertificateRecordRepository;
@@ -52,7 +53,26 @@ public class CertificateVerificationService {
         CertificateRecord record = certificateRecordRepository
                 .findByVerificationCodeIgnoreCase(normalizedCode)
                 .orElseThrow(() -> new CertificateNotFoundException("Certificate not found."));
+        if (!record.isPublished()) {
+            throw new CertificateNotFoundException("Certificate not found.");
+        }
         return toResponse(record);
+    }
+
+    @Transactional
+    public List<CertificateVerificationResponse> publish(CertificatePublishRequest request) {
+        List<String> verificationCodes = request == null ? null : request.verificationCodes();
+        if (verificationCodes == null || verificationCodes.isEmpty()) {
+            throw new IllegalArgumentException("At least one certificate is required.");
+        }
+        if (verificationCodes.size() > MAX_BATCH_SIZE) {
+            throw new IllegalArgumentException("A maximum of 500 certificates can be published at once.");
+        }
+
+        return verificationCodes.stream()
+                .map(this::publishOne)
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
@@ -96,16 +116,31 @@ public class CertificateVerificationService {
             record.setCourseName(required(item.courseName(), "Course", 500));
             record.setIssueDate(required(item.issueDate(), "Issue date", 100));
             record.setIssuedByEmail(clean(issuedBy, 255));
+            record.setPublished(false);
             record.setRevoked(false);
             return certificateRecordRepository.save(record);
         });
     }
 
+    private CertificateRecord publishOne(String verificationCode) {
+        CertificateRecord record = certificateRecordRepository
+                .findByVerificationCodeIgnoreCase(normalizeCode(verificationCode))
+                .orElseThrow(() -> new CertificateNotFoundException("Certificate not found."));
+        if (!record.isPublished()) {
+            record.setPublished(true);
+            record.setPublishedAt(LocalDateTime.now());
+            certificateRecordRepository.save(record);
+        }
+        return record;
+    }
+
     private CertificateVerificationResponse toResponse(CertificateRecord record) {
-        boolean valid = !record.isRevoked();
+        boolean valid = record.isPublished() && !record.isRevoked();
+        String status = record.isRevoked() ? "REVOKED" : record.isPublished() ? "VALID" : "DRAFT";
         return new CertificateVerificationResponse(
-                valid ? "VALID" : "REVOKED",
+                status,
                 valid,
+                record.isPublished(),
                 record.getVerificationCode(),
                 record.getCertificateNumber(),
                 record.getRecipientNameKhmer(),
@@ -113,6 +148,7 @@ public class CertificateVerificationService {
                 record.getCourseName(),
                 record.getIssueDate(),
                 record.getIssuedAt(),
+                record.getPublishedAt(),
                 record.getRevokedAt()
         );
     }

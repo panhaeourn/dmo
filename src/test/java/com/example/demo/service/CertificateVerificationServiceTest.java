@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.CertificateIssueRequest;
+import com.example.demo.dto.CertificatePublishRequest;
 import com.example.demo.dto.CertificateVerificationResponse;
 import com.example.demo.entity.CertificateRecord;
 import com.example.demo.repository.CertificateRecordRepository;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -45,8 +47,9 @@ class CertificateVerificationServiceTest {
         );
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).status()).isEqualTo("VALID");
-        assertThat(result.get(0).valid()).isTrue();
+        assertThat(result.get(0).status()).isEqualTo("DRAFT");
+        assertThat(result.get(0).valid()).isFalse();
+        assertThat(result.get(0).published()).isFalse();
         assertThat(result.get(0).certificateNumber()).startsWith("CITO-2026-");
         assertThat(result.get(0).recipientNameEnglish()).isEqualTo("Sok Dara");
         assertThat(result.get(0).courseName()).isEqualTo("Microsoft Excel");
@@ -78,6 +81,35 @@ class CertificateVerificationServiceTest {
         assertThat(result.revokedAt()).isNotNull();
     }
 
+    @Test
+    void draftCertificateIsHiddenFromPublicVerification() {
+        CertificateRecord draft = record(false);
+        draft.setPublished(false);
+        when(repository.findByVerificationCodeIgnoreCase("abc-123")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.verify("ABC-123"))
+                .isInstanceOf(CertificateVerificationService.CertificateNotFoundException.class);
+    }
+
+    @Test
+    void publishesDraftCertificateToThePublicRegistry() {
+        CertificateRecord draft = record(false);
+        draft.setPublished(false);
+        when(repository.findByVerificationCodeIgnoreCase("abc-123")).thenReturn(Optional.of(draft));
+        when(repository.save(draft)).thenReturn(draft);
+
+        List<CertificateVerificationResponse> result = service.publish(
+                new CertificatePublishRequest(List.of("ABC-123"))
+        );
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo("VALID");
+        assertThat(result.get(0).valid()).isTrue();
+        assertThat(result.get(0).published()).isTrue();
+        assertThat(result.get(0).publishedAt()).isNotNull();
+        verify(repository).save(draft);
+    }
+
     private CertificateIssueRequest request(String issuanceKey) {
         return new CertificateIssueRequest(List.of(new CertificateIssueRequest.CertificateIssueItem(
                 issuanceKey,
@@ -99,6 +131,8 @@ class CertificateVerificationServiceTest {
         record.setIssueDate("21 July 2026");
         record.setIssuedAt(LocalDateTime.of(2026, 7, 21, 10, 0));
         record.setIssuedByEmail("admin@cito.study");
+        record.setPublished(true);
+        record.setPublishedAt(LocalDateTime.of(2026, 7, 21, 10, 5));
         record.setRevoked(revoked);
         if (revoked) {
             record.setRevokedAt(LocalDateTime.of(2026, 7, 22, 10, 0));

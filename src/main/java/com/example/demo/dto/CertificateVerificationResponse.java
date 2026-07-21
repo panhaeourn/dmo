@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record CertificateVerificationResponse(
         String status,
         boolean valid,
+        boolean published,
         String verificationCode,
         String certificateNumber,
         String recipientNameKhmer,
@@ -12,6 +13,7 @@ public record CertificateVerificationResponse(
         String courseName,
         String issueDate,
         LocalDateTime issuedAt,
+        LocalDateTime publishedAt,
         LocalDateTime revokedAt
 ) {
 }

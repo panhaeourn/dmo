@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.CertificateIssueRequest;
+import com.example.demo.dto.CertificatePublishRequest;
 import com.example.demo.dto.CertificateVerificationResponse;
 import com.example.demo.service.CertificateVerificationService;
 import org.springframework.http.CacheControl;
@@ -39,6 +40,17 @@ public class CertificateVerificationController {
             return ResponseEntity.ok(issued);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(new ApiError(ex.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/api/admin/certificates/publish", produces = "application/json")
+    public ResponseEntity<?> publish(@RequestBody CertificatePublishRequest request) {
+        try {
+            return ResponseEntity.ok(certificateVerificationService.publish(request));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(new ApiError(ex.getMessage()));
+        } catch (CertificateVerificationService.CertificateNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(ex.getMessage()));
         }
     }
 
