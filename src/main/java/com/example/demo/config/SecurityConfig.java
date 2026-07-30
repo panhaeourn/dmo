@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -53,7 +54,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                )
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
@@ -69,7 +72,8 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/google-mobile",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
+                                "/api/auth/reset-password",
+                                "/api/auth/csrf"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/courses", "/api/courses/**").permitAll()
@@ -78,6 +82,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/certificates/verify/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/files/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/course-videos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/course-videos/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/certificates/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/**").hasRole("ADMIN")

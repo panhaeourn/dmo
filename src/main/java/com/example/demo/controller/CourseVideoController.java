@@ -4,11 +4,13 @@ import com.example.demo.entity.Course;
 import com.example.demo.entity.CourseVideo;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +26,7 @@ public class CourseVideoController {
     private final CourseRepository courseRepository;
     private final CourseVideoRepository courseVideoRepository;
     private final FileService fileService;
+    private final CourseAccessService courseAccessService;
 
     @PostMapping("/{courseId}/upload")
     public CourseVideo uploadVideo(
@@ -54,7 +57,13 @@ public class CourseVideoController {
     }
 
     @GetMapping("/course/{courseId}")
-    public List<CourseVideo> getVideosByCourse(@PathVariable Long courseId) {
+    public List<CourseVideo> getVideosByCourse(
+            @PathVariable Long courseId,
+            Authentication authentication
+    ) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        courseAccessService.requireCourseAccess(authentication, course);
         return courseVideoRepository.findByCourseIdOrderBySortOrderAscIdAsc(courseId);
     }
 

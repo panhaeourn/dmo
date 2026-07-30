@@ -1,0 +1,15 @@
+.git
+.gradle
+.idea
+.vscode
+build
+node_modules
+*.log
+*.out
+*.err
+*.zip
+*.7z
+.env
+.env.*
+src/main/resources/keys/key
+src/main/resources/static/

@@ -223,12 +223,17 @@ public class CitoReceiptController {
 
             paymentHistoryRepository.save(buildPaidHistory(
                     receipt,
-                    paymentHistoryRepository.findFirstByReceiptIdOrderByIdDesc(receipt.getId()).orElseGet(PaymentHistory::new),
-                    "manual",
+                    historyForNewPayment(receipt),
+                    email,
                     null,
                     "Monthly payment marked as paid for " + nextUnpaidMonth
             ));
 
+            decorateReceipt(receipt);
+            return ResponseEntity.ok(receipt);
+        }
+
+        if ("Paid".equalsIgnoreCase(receipt.getPaymentStatus())) {
             decorateReceipt(receipt);
             return ResponseEntity.ok(receipt);
         }
@@ -239,7 +244,7 @@ public class CitoReceiptController {
         paymentHistoryRepository.save(buildPaidHistory(
                 receipt,
                 paymentHistoryRepository.findFirstByReceiptIdOrderByIdDesc(receipt.getId()).orElseGet(PaymentHistory::new),
-                "manual",
+                email,
                 null,
                 "Receipt manually marked as paid"
         ));
@@ -277,8 +282,8 @@ public class CitoReceiptController {
 
                                 paymentHistoryRepository.save(buildPaidHistory(
                                         receipt,
-                                        paymentHistoryRepository.findFirstByReceiptIdOrderByIdDesc(receipt.getId()).orElseGet(PaymentHistory::new),
-                                        "system",
+                                        historyForNewPayment(receipt),
+                                        receipt.getCreatedByReceptionist(),
                                         String.valueOf(dataObj),
                                         "Receipt payment confirmed from Bakong status check"
                                 ));
@@ -441,6 +446,12 @@ public class CitoReceiptController {
         history.setCheckedBy(checkedBy);
         history.setNote("Receipt created and waiting for payment");
         return history;
+    }
+
+    private PaymentHistory historyForNewPayment(CitoReceipt receipt) {
+        return paymentHistoryRepository.findFirstByReceiptIdOrderByIdDesc(receipt.getId())
+                .filter(history -> !"PAID".equalsIgnoreCase(history.getStatus()))
+                .orElseGet(PaymentHistory::new);
     }
 
     private PaymentHistory buildPaidHistory(

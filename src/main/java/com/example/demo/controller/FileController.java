@@ -1,5 +1,8 @@
 package com.example.demo.controller;
 
+import com.example.demo.entity.CourseVideo;
+import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -9,6 +12,7 @@ import org.springframework.http.HttpRange;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
@@ -20,17 +24,31 @@ import java.util.Locale;
 public class FileController {
 
     private final FileService fileService;
+    private final CourseVideoRepository courseVideoRepository;
+    private final CourseAccessService courseAccessService;
 
-    public FileController(FileService fileService) {
+    public FileController(
+            FileService fileService,
+            CourseVideoRepository courseVideoRepository,
+            CourseAccessService courseAccessService
+    ) {
         this.fileService = fileService;
+        this.courseVideoRepository = courseVideoRepository;
+        this.courseAccessService = courseAccessService;
     }
 
     @RequestMapping(value = "/files/{filename}", method = {RequestMethod.GET, RequestMethod.HEAD})
     public ResponseEntity<InputStreamResource> getFile(
             @PathVariable String filename,
             @RequestHeader(value = "Range", required = false) String rangeHeader,
-            HttpMethod method
+            HttpMethod method,
+            Authentication authentication
     ) throws Exception {
+
+        CourseVideo protectedVideo = courseVideoRepository.findByFileName(filename).orElse(null);
+        if (protectedVideo != null) {
+            courseAccessService.requireCourseAccess(authentication, protectedVideo.getCourse());
+        }
 
         boolean isHeadRequest = HttpMethod.HEAD.equals(method);
 

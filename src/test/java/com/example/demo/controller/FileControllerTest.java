@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +27,9 @@ class FileControllerTest {
     @BeforeEach
     void setUp() throws Exception {
         fileService = mock(FileService.class);
-        controller = new FileController(fileService);
+        CourseVideoRepository courseVideoRepository = mock(CourseVideoRepository.class);
+        CourseAccessService courseAccessService = mock(CourseAccessService.class);
+        controller = new FileController(fileService, courseVideoRepository, courseAccessService);
         when(fileService.metadata("lesson.mp4"))
                 .thenReturn(new FileService.FileMetadata(1_000, "video/mp4", "etag-value"));
     }
@@ -35,7 +39,8 @@ class FileControllerTest {
         ResponseEntity<InputStreamResource> response = controller.getFile(
                 "lesson.mp4",
                 null,
-                HttpMethod.HEAD
+                HttpMethod.HEAD,
+                null
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -55,7 +60,8 @@ class FileControllerTest {
         ResponseEntity<InputStreamResource> response = controller.getFile(
                 "lesson.mp4",
                 "bytes=100-199",
-                HttpMethod.GET
+                HttpMethod.GET,
+                null
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PARTIAL_CONTENT);
@@ -73,7 +79,8 @@ class FileControllerTest {
         ResponseEntity<InputStreamResource> response = controller.getFile(
                 "lesson.mp4",
                 "bytes=-100",
-                HttpMethod.GET
+                HttpMethod.GET,
+                null
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PARTIAL_CONTENT);
@@ -87,7 +94,8 @@ class FileControllerTest {
         ResponseEntity<InputStreamResource> response = controller.getFile(
                 "lesson.mp4",
                 "bytes=1000-",
-                HttpMethod.GET
+                HttpMethod.GET,
+                null
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);

@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -112,7 +113,7 @@ public class AuthController {
 
             String token = jwtService.generateToken(email);
             addAccessTokenCookie(httpRequest, httpResponse, token, 60 * 60);
-            return ResponseEntity.ok(new TokenResponse(token));
+            return ResponseEntity.ok(new ApiMessage("Login successful"));
 
         } catch (BadCredentialsException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -310,6 +311,14 @@ public class AuthController {
         return ResponseEntity.ok(toMeResponse(user));
     }
 
+    @GetMapping(value = "/csrf", produces = "application/json")
+    public Map<String, String> csrf(CsrfToken csrfToken) {
+        return Map.of(
+                "headerName", csrfToken.getHeaderName(),
+                "token", csrfToken.getToken()
+        );
+    }
+
     private MeResponse toMeResponse(AppUser user) {
         boolean passwordLoginEnabled = hasCitoPassword(user);
         return new MeResponse(
@@ -388,7 +397,7 @@ public class AuthController {
 
         String token = jwtService.generateToken(email);
         addAccessTokenCookie(httpRequest, httpResponse, token, 60 * 60);
-        return ResponseEntity.ok(new TokenResponse(token));
+        return ResponseEntity.ok(new ApiMessage("Login successful"));
     }
 
     private String extractEmail(Authentication authentication) {
