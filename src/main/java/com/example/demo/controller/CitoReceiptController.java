@@ -266,13 +266,7 @@ public class CitoReceiptController {
                             Map<String, Object> check = bakongService.checkTransactionByMd5(md5);
 
                             Object dataObj = check.get("data");
-                            String raw = String.valueOf(dataObj).toLowerCase();
-
-                            boolean paid =
-                                    raw.contains("paid")
-                                            || raw.contains("completed")
-                                            || raw.contains("approved")
-                                            || raw.contains("settled");
+                            boolean paid = bakongService.isTransactionPaid(check);
 
                             if (paid) {
                                 receipt.setPaymentStatus("Paid");
