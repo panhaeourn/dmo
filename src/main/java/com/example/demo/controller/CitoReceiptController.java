@@ -123,11 +123,9 @@ public class CitoReceiptController {
         receipt.setQrImage(request.getQrImage());
         receipt.setQrText(request.getQrText());
         receipt.setBakongTranId(request.getBakongTranId());
-        receipt.setCreatedAt(
-                request.getCreatedAt() != null && !request.getCreatedAt().isBlank()
-                        ? request.getCreatedAt()
-                        : LocalDateTime.now().toString()
-        );
+        // Store one predictable format. Browser locale strings can be ambiguous
+        // (for example, month/day versus day/month) and break dashboard grouping.
+        receipt.setCreatedAt(LocalDateTime.now().toString());
         receipt.setCreatedByReceptionist(email);
         receipt.setCreatedByReceptionistName(receptionistName);
 
