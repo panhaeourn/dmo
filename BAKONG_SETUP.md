@@ -15,11 +15,10 @@ References:
 
 ## Env var
 
-Set your token (the backend accepts either variable name):
+Set your token:
 
-- Windows (PowerShell): `$env:BAKONG_TOKEN="YOUR_TOKEN"`
-- Linux/Mac: `export BAKONG_TOKEN="YOUR_TOKEN"`
-- Existing deployments using `BAKONG_API_TOKEN` remain supported.
+- Windows (PowerShell): `$env:BAKONG_API_TOKEN="YOUR_TOKEN"`
+- Linux/Mac: `export BAKONG_API_TOKEN="YOUR_TOKEN"`
 
 ## Backend endpoints
 
