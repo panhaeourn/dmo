@@ -123,9 +123,11 @@ public class CitoReceiptController {
         receipt.setQrImage(request.getQrImage());
         receipt.setQrText(request.getQrText());
         receipt.setBakongTranId(request.getBakongTranId());
-        // Store one predictable format. Browser locale strings can be ambiguous
-        // (for example, month/day versus day/month) and break dashboard grouping.
-        receipt.setCreatedAt(LocalDateTime.now().toString());
+        receipt.setCreatedAt(
+                request.getCreatedAt() != null && !request.getCreatedAt().isBlank()
+                        ? request.getCreatedAt()
+                        : LocalDateTime.now().toString()
+        );
         receipt.setCreatedByReceptionist(email);
         receipt.setCreatedByReceptionistName(receptionistName);
 
@@ -266,7 +268,13 @@ public class CitoReceiptController {
                             Map<String, Object> check = bakongService.checkTransactionByMd5(md5);
 
                             Object dataObj = check.get("data");
-                            boolean paid = bakongService.isTransactionPaid(check);
+                            String raw = String.valueOf(dataObj).toLowerCase();
+
+                            boolean paid =
+                                    raw.contains("paid")
+                                            || raw.contains("completed")
+                                            || raw.contains("approved")
+                                            || raw.contains("settled");
 
                             if (paid) {
                                 receipt.setPaymentStatus("Paid");

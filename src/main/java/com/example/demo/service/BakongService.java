@@ -568,10 +568,6 @@ public class BakongService {
         return containsPaidSignal(dataObj);
     }
 
-    public boolean isTransactionPaid(Map<String, Object> check) {
-        return isBakongPaid(check);
-    }
-
     private boolean containsPaidSignal(Object obj) {
         if (obj == null) {
             return false;
