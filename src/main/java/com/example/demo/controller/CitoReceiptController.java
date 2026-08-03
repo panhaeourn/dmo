@@ -263,10 +263,19 @@ public class CitoReceiptController {
 
                     if (md5 != null && !md5.isBlank()) {
                         try {
-                            Map<String, Object> check = bakongService.checkTransactionByMd5(md5);
+                            Map<String, Object> check;
+                            boolean paid;
+                            Object dataObj;
 
-                            Object dataObj = check.get("data");
-                            boolean paid = bakongService.isTransactionPaid(check);
+                            try {
+                                check = bakongService.getReceiptPaymentStatus(md5);
+                                paid = Boolean.TRUE.equals(check.get("paid"));
+                                dataObj = check;
+                            } catch (IllegalArgumentException legacyTransaction) {
+                                check = bakongService.checkTransactionByMd5(md5);
+                                paid = bakongService.isTransactionPaid(check);
+                                dataObj = check.get("data");
+                            }
 
                             if (paid) {
                                 receipt.setPaymentStatus("Paid");

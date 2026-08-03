@@ -285,6 +285,70 @@ public class BakongService {
         return out;
     }
 
+    public Map<String, Object> createReceiptPayment(Double amount) {
+        if (amount == null || amount <= 0) {
+            throw new IllegalArgumentException("amount must be greater than 0");
+        }
+
+        AppUser currentUser = getCurrentUser();
+        Map<String, Object> qrData = generateIndividualKhqr(amount);
+        long expiresAtMs = qrData.get("expiresAt") instanceof Number number
+                ? number.longValue()
+                : System.currentTimeMillis() + (qrExpirySeconds * 1000L);
+
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setTransactionId(UUID.randomUUID().toString());
+        tx.setAmount(amount);
+        tx.setCurrency(normalizedCurrency());
+        tx.setStatus("PENDING");
+        // Course ID zero identifies a receptionist receipt payment without a schema change.
+        tx.setCourseId(0L);
+        tx.setProvider("BAKONG_RECEIPT");
+        tx.setQrString(String.valueOf(qrData.get("qr")));
+        tx.setBakongMd5(String.valueOf(qrData.get("md5")));
+        tx.setUserId(currentUser.getId());
+        tx.setExpiresAt(Instant.ofEpochMilli(expiresAtMs));
+        paymentTransactionRepository.save(tx);
+
+        Map<String, Object> out = new HashMap<>(qrData);
+        out.put("transactionId", tx.getTransactionId());
+        return out;
+    }
+
+    public Map<String, Object> getReceiptPaymentStatus(String transactionId) {
+        AppUser currentUser = getCurrentUser();
+        PaymentTransaction tx = paymentTransactionRepository
+                .findByTransactionId(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("Receipt payment transaction not found"));
+
+        String role = currentUser.getRole() == null ? "" : currentUser.getRole().trim().toUpperCase();
+        boolean isStaff = "ADMIN".equals(role) || "RECEPTIONIST".equals(role);
+        if (!isStaff && !currentUser.getId().equals(tx.getUserId())) {
+            throw new IllegalStateException("Not allowed to check this receipt payment");
+        }
+
+        if (tx.getCourseId() == null || tx.getCourseId() != 0L) {
+            throw new IllegalArgumentException("Transaction is not a receipt payment");
+        }
+
+        if (!"PAID".equalsIgnoreCase(tx.getStatus())) {
+            Map<String, Object> check = checkTransactionByMd5(tx.getBakongMd5());
+            if (isBakongPaid(check)) {
+                tx.setStatus("PAID");
+                tx.setPaidAt(Instant.now());
+                paymentTransactionRepository.save(tx);
+            }
+        }
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("success", true);
+        out.put("paid", "PAID".equalsIgnoreCase(tx.getStatus()));
+        out.put("status", tx.getStatus());
+        out.put("transactionId", tx.getTransactionId());
+        out.put("md5", tx.getBakongMd5());
+        return out;
+    }
+
     public Map<String, Object> getPaymentStatus(String transactionId) {
         if (transactionId == null || transactionId.isBlank()) {
             throw new IllegalArgumentException("transactionId is required");

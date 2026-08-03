@@ -51,6 +51,12 @@ public class BakongController {
         return bakongService.createCoursePayment(courseId, amount);
     }
 
+    @PostMapping("/receipt-payment")
+    public Map<String, Object> createReceiptPayment(@RequestBody Map<String, Object> body) {
+        Double amount = Double.valueOf(String.valueOf(body.get("amount")));
+        return bakongService.createReceiptPayment(amount);
+    }
+
     @GetMapping("/payment-status/{transactionId}")
     public Map<String, Object> paymentStatus(@PathVariable String transactionId) {
         return bakongService.getPaymentStatus(transactionId);
