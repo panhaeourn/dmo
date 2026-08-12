@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.entity.AppUser;
 import com.example.demo.entity.CitoReceipt;
 import com.example.demo.entity.PaymentHistory;
+import com.example.demo.dto.ReceiptStudentUpdateRequest;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CitoReceiptRepository;
 import com.example.demo.repository.PaymentHistoryRepository;
@@ -189,6 +190,50 @@ public class CitoReceiptController {
                     return ResponseEntity.ok("Receipt deleted successfully");
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}/student")
+    public ResponseEntity<?> updateStudent(
+            @PathVariable Long id,
+            @RequestBody ReceiptStudentUpdateRequest request,
+            Authentication authentication
+    ) {
+        String email = extractEmail(authentication);
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+
+        Optional<CitoReceipt> receiptOpt = receiptRepository.findById(id);
+        if (receiptOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        CitoReceipt receipt = receiptOpt.get();
+        if (!canAccessReceipt(authentication, email, receipt)) {
+            return ResponseEntity.status(403).body("Forbidden");
+        }
+
+        String studentName = cleanRequired(request.getStudentName());
+        if (studentName == null) {
+            return ResponseEntity.badRequest().body("Student name is required");
+        }
+
+        receipt.setStudentName(studentName);
+        receipt.setStudentNameEnglish(cleanOptional(request.getStudentNameEnglish()));
+        receipt.setStudentNameKhmer(cleanOptional(request.getStudentNameKhmer()));
+        receipt.setGender(cleanOptional(request.getGender()));
+        receipt.setPhone(cleanOptional(request.getPhone()));
+        receipt.setContactInfo(cleanOptional(request.getContactInfo()));
+        receipt.setEmail(cleanOptional(request.getEmail()));
+        receipt.setAddress(cleanOptional(request.getAddress()));
+        receiptRepository.save(receipt);
+
+        List<PaymentHistory> histories = paymentHistoryRepository.findByReceiptId(id);
+        histories.forEach(history -> history.setStudentName(studentName));
+        paymentHistoryRepository.saveAll(histories);
+
+        decorateReceipt(receipt);
+        return ResponseEntity.ok(receipt);
     }
 
     @PatchMapping("/{id}/paid")
@@ -556,6 +601,17 @@ public class CitoReceiptController {
         }
         String owner = receipt.getCreatedByReceptionist();
         return owner != null && owner.equalsIgnoreCase(email);
+    }
+
+    private String cleanRequired(String value) {
+        String cleaned = cleanOptional(value);
+        return cleaned == null || cleaned.isBlank() ? null : cleaned;
+    }
+
+    private String cleanOptional(String value) {
+        if (value == null) return null;
+        String cleaned = value.trim();
+        return cleaned.isEmpty() ? null : cleaned;
     }
 
     private List<CitoReceipt> decorateReceipts(List<CitoReceipt> receipts) {

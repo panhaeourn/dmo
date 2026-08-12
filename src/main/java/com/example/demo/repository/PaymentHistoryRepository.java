@@ -14,10 +14,11 @@ public interface PaymentHistoryRepository extends JpaRepository<PaymentHistory, 
 
     Optional<PaymentHistory> findFirstByReceiptIdOrderByIdDesc(Long id);
 
+    List<PaymentHistory> findByReceiptId(Long id);
+
     Optional<PaymentHistory> findFirstByTransactionRefOrderByIdDesc(String transactionRef);
 
     List<PaymentHistory> findByStudentIdOrderByIdDesc(String studentId);
-
     @Query("""
             select payment
             from PaymentHistory payment, CitoReceipt receipt
