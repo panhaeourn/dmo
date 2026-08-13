@@ -79,7 +79,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.HEAD, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/course-videos/course/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/course-videos/course/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/course-videos/*/view").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/certificates/verify/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/files/**").permitAll()
