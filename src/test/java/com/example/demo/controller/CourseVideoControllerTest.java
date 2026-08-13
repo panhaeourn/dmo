@@ -3,6 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.entity.CourseVideo;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.repository.AppUserRepository;
+import com.example.demo.repository.VideoViewRepository;
 import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,11 +33,15 @@ class CourseVideoControllerTest {
         courseVideoRepository = mock(CourseVideoRepository.class);
         fileService = mock(FileService.class);
         CourseAccessService courseAccessService = mock(CourseAccessService.class);
+        AppUserRepository appUserRepository = mock(AppUserRepository.class);
+        VideoViewRepository videoViewRepository = mock(VideoViewRepository.class);
         controller = new CourseVideoController(
                 courseRepository,
                 courseVideoRepository,
                 fileService,
-                courseAccessService
+                courseAccessService,
+                appUserRepository,
+                videoViewRepository
         );
     }
 

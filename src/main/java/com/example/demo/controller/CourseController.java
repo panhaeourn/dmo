@@ -9,6 +9,7 @@ import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.repository.EnrollmentRepository;
+import com.example.demo.repository.VideoViewRepository;
 import com.example.demo.service.FileService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
@@ -31,19 +32,22 @@ public class CourseController {
     private final EnrollmentRepository enrollmentRepository;
     private final CourseVideoRepository courseVideoRepository;
     private final FileService fileService;
+    private final VideoViewRepository videoViewRepository;
 
     public CourseController(
             CourseRepository courseRepository,
             AppUserRepository userRepository,
             EnrollmentRepository enrollmentRepository,
             CourseVideoRepository courseVideoRepository,
-            FileService fileService
+            FileService fileService,
+            VideoViewRepository videoViewRepository
     ) {
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.courseVideoRepository = courseVideoRepository;
         this.fileService = fileService;
+        this.videoViewRepository = videoViewRepository;
     }
 
     @GetMapping
@@ -178,6 +182,7 @@ public class CourseController {
             return ResponseEntity.status(403).body("Forbidden: not allowed to delete this course");
         }
 
+        videoViewRepository.deleteByVideoCourseId(courseId);
         courseVideoRepository.deleteByCourseId(courseId);
         enrollmentRepository.deleteByCourseId(courseId);
         courseRepository.delete(course);
