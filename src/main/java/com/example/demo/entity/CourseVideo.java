@@ -14,6 +14,9 @@ public class CourseVideo {
     private String videoUrl;
     private Integer sortOrder;
 
+    @Column(nullable = false)
+    private Long viewCount = 0L;
+
     @ManyToOne
     @JoinColumn(name = "course_id")
     private Course course;
@@ -55,6 +58,14 @@ public class CourseVideo {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public Long getViewCount() {
+        return viewCount == null ? 0L : viewCount;
+    }
+
+    public void setViewCount(Long viewCount) {
+        this.viewCount = viewCount;
     }
 
     public Course getCourse() {
