@@ -9,7 +9,6 @@ import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.repository.EnrollmentRepository;
 import com.example.demo.repository.VideoViewRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,7 +27,6 @@ public class AdminCourseAnalyticsController {
     private final VideoViewRepository videoViewRepository;
 
     @GetMapping("/{courseId}/analytics")
-    @Transactional(readOnly = true)
     public CourseAnalytics analytics(@PathVariable Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));

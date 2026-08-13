@@ -18,7 +18,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.time.LocalDateTime;
@@ -96,7 +95,6 @@ public class CourseVideoController {
     }
 
     @PostMapping("/{videoId}/view")
-    @Transactional
     public ResponseEntity<Void> recordView(@PathVariable Long videoId, Authentication authentication) {
         CourseVideo video = courseVideoRepository.findById(videoId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found"));
