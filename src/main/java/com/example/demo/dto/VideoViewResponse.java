@@ -2,7 +2,7 @@ package com.example.demo.dto;
 
 public record VideoViewResponse(
         long views,
-        long uniqueViewers,
+        Long uniqueViewers,
         long totalWatchSeconds,
         double progressSeconds,
         boolean completed,

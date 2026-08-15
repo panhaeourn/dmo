@@ -87,7 +87,7 @@ public class VideoViewService {
         }
 
         videoViewRepository.save(view);
-        return response(videoId, view, viewCounted);
+        return response(videoId, view, viewCounted, isAdmin(authentication));
     }
 
     @Transactional(readOnly = true)
@@ -98,18 +98,23 @@ public class VideoViewService {
         AppUser user = appUserRepository.findByEmailIgnoreCase(authentication.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User account not found"));
         VideoView view = videoViewRepository.findByVideoIdAndUserId(videoId, user.getId()).orElse(null);
-        return response(videoId, view, false);
+        return response(videoId, view, false, isAdmin(authentication));
     }
 
-    private VideoViewResponse response(Long videoId, VideoView view, boolean counted) {
+    private VideoViewResponse response(Long videoId, VideoView view, boolean counted, boolean admin) {
         return new VideoViewResponse(
                 videoViewRepository.totalViews(videoId),
-                videoViewRepository.uniqueViewers(videoId),
+                admin ? videoViewRepository.uniqueViewers(videoId) : null,
                 view == null ? 0 : view.getTotalWatchSeconds(),
                 view == null ? 0 : view.getProgressSeconds(),
                 view != null && view.isCompleted(),
                 counted
         );
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
     private VideoView newView(CourseVideo video, AppUser user) {
