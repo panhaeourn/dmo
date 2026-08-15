@@ -9,6 +9,7 @@ import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.repository.EnrollmentRepository;
+import com.example.demo.repository.PaymentHistoryRepository;
 import com.example.demo.service.FileService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/courses")
@@ -30,6 +33,7 @@ public class CourseController {
     private final AppUserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final CourseVideoRepository courseVideoRepository;
+    private final PaymentHistoryRepository paymentHistoryRepository;
     private final FileService fileService;
 
     public CourseController(
@@ -37,18 +41,26 @@ public class CourseController {
             AppUserRepository userRepository,
             EnrollmentRepository enrollmentRepository,
             CourseVideoRepository courseVideoRepository,
+            PaymentHistoryRepository paymentHistoryRepository,
             FileService fileService
     ) {
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.courseVideoRepository = courseVideoRepository;
+        this.paymentHistoryRepository = paymentHistoryRepository;
         this.fileService = fileService;
     }
 
     @GetMapping
     public List<CourseResponse> getAll(Authentication authentication) {
         Set<Long> enrolledCourseIds = new HashSet<>();
+        Map<Long, Long> purchaseCounts = paymentHistoryRepository.countPaidCoursePurchases()
+                .stream()
+                .collect(Collectors.toMap(
+                        PaymentHistoryRepository.PaidCoursePurchaseCount::getCourseId,
+                        PaymentHistoryRepository.PaidCoursePurchaseCount::getPurchaseCount
+                ));
 
         String email = extractEmail(authentication);
         if (email != null && !email.isBlank()) {
@@ -62,7 +74,11 @@ public class CourseController {
 
         return courseRepository.findAll()
                 .stream()
-                .map(course -> toResponse(course, enrolledCourseIds.contains(course.getId())))
+                .map(course -> toResponse(
+                        course,
+                        enrolledCourseIds.contains(course.getId()),
+                        purchaseCounts.getOrDefault(course.getId(), 0L)
+                ))
                 .toList();
     }
 
@@ -348,6 +364,10 @@ public class CourseController {
     }
 
     private CourseResponse toResponse(Course course, boolean enrolled) {
+        return toResponse(course, enrolled, 0L);
+    }
+
+    private CourseResponse toResponse(Course course, boolean enrolled, long purchaseCount) {
         String videoUrl = null;
         if (course.getVideoFileName() != null && !course.getVideoFileName().isBlank()) {
             videoUrl = "/files/" + course.getVideoFileName();
@@ -371,7 +391,8 @@ public class CourseController {
                 course.getTeacherPhotoPositionY(),
                 course.getTeacherPhotoBottomDarkness(),
                 course.getTeacherPhotoScale(),
-                enrolled
+                enrolled,
+                purchaseCount
         );
     }
 }

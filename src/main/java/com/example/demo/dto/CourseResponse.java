@@ -14,6 +14,7 @@ public class CourseResponse {
     private Double teacherPhotoBottomDarkness;
     private Double teacherPhotoScale;
     private boolean enrolled;
+    private long purchaseCount;
 
     public CourseResponse() {}
 
@@ -30,7 +31,8 @@ public class CourseResponse {
             Double teacherPhotoPositionY,
             Double teacherPhotoBottomDarkness,
             Double teacherPhotoScale,
-            boolean enrolled
+            boolean enrolled,
+            long purchaseCount
     ) {
         this.id = id;
         this.title = title;
@@ -45,6 +47,7 @@ public class CourseResponse {
         this.teacherPhotoBottomDarkness = teacherPhotoBottomDarkness;
         this.teacherPhotoScale = teacherPhotoScale;
         this.enrolled = enrolled;
+        this.purchaseCount = purchaseCount;
     }
 
     public Long getId() { return id; }
@@ -85,4 +88,7 @@ public class CourseResponse {
 
     public boolean isEnrolled() { return enrolled; }
     public void setEnrolled(boolean enrolled) { this.enrolled = enrolled; }
+
+    public long getPurchaseCount() { return purchaseCount; }
+    public void setPurchaseCount(long purchaseCount) { this.purchaseCount = purchaseCount; }
 }

@@ -10,6 +10,11 @@ import java.util.Optional;
 
 public interface PaymentHistoryRepository extends JpaRepository<PaymentHistory, Long> {
 
+    interface PaidCoursePurchaseCount {
+        Long getCourseId();
+        long getPurchaseCount();
+    }
+
     List<PaymentHistory> findAllByOrderByIdDesc();
 
     Optional<PaymentHistory> findFirstByReceiptIdOrderByIdDesc(Long id);
@@ -19,6 +24,17 @@ public interface PaymentHistoryRepository extends JpaRepository<PaymentHistory, 
     Optional<PaymentHistory> findFirstByTransactionRefOrderByIdDesc(String transactionRef);
 
     List<PaymentHistory> findByStudentIdOrderByIdDesc(String studentId);
+
+    @Query("""
+            select payment.courseId as courseId, count(payment.id) as purchaseCount
+            from PaymentHistory payment
+            where upper(payment.paymentType) = 'COURSE'
+              and upper(payment.status) = 'PAID'
+              and payment.courseId is not null
+            group by payment.courseId
+            """)
+    List<PaidCoursePurchaseCount> countPaidCoursePurchases();
+
     @Query("""
             select payment
             from PaymentHistory payment, CitoReceipt receipt
