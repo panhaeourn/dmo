@@ -2,11 +2,13 @@ package com.example.demo.service;
 
 import com.example.demo.dto.VideoHeartbeatRequest;
 import com.example.demo.dto.VideoViewResponse;
+import com.example.demo.dto.VideoListStatsResponse;
 import com.example.demo.entity.AppUser;
 import com.example.demo.entity.CourseVideo;
 import com.example.demo.entity.VideoView;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.VideoViewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class VideoViewService {
     static final Duration MAX_HEARTBEAT_GAP = Duration.ofSeconds(30);
 
     private final CourseVideoRepository courseVideoRepository;
+    private final CourseRepository courseRepository;
     private final VideoViewRepository videoViewRepository;
     private final AppUserRepository appUserRepository;
     private final CourseAccessService courseAccessService;
@@ -99,6 +103,22 @@ public class VideoViewService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User account not found"));
         VideoView view = videoViewRepository.findByVideoIdAndUserId(videoId, user.getId()).orElse(null);
         return response(videoId, view, false, isAdmin(authentication));
+    }
+
+    @Transactional(readOnly = true)
+    public List<VideoListStatsResponse> courseStats(Long courseId, Authentication authentication) {
+        var course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        courseAccessService.requireCourseAccess(authentication, course);
+        boolean admin = isAdmin(authentication);
+
+        return videoViewRepository.statsByCourse(courseId).stream()
+                .map(row -> new VideoListStatsResponse(
+                        ((Number) row[0]).longValue(),
+                        ((Number) row[1]).longValue(),
+                        admin ? ((Number) row[2]).longValue() : null
+                ))
+                .toList();
     }
 
     private VideoViewResponse response(Long videoId, VideoView view, boolean counted, boolean admin) {

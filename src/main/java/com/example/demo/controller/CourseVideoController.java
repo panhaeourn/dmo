@@ -4,6 +4,7 @@ import com.example.demo.entity.Course;
 import com.example.demo.entity.CourseVideo;
 import com.example.demo.dto.VideoHeartbeatRequest;
 import com.example.demo.dto.VideoViewResponse;
+import com.example.demo.dto.VideoListStatsResponse;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.service.CourseAccessService;
@@ -102,5 +103,13 @@ public class CourseVideoController {
     @GetMapping("/{videoId}/view-stats")
     public VideoViewResponse getViewStats(@PathVariable Long videoId, Authentication authentication) {
         return videoViewService.stats(videoId, authentication);
+    }
+
+    @GetMapping("/course/{courseId}/view-stats")
+    public List<VideoListStatsResponse> getCourseViewStats(
+            @PathVariable Long courseId,
+            Authentication authentication
+    ) {
+        return videoViewService.courseStats(courseId, authentication);
     }
 }

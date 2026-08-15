@@ -7,6 +7,7 @@ import com.example.demo.entity.CourseVideo;
 import com.example.demo.entity.VideoView;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseVideoRepository;
+import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.VideoViewRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,7 @@ class VideoViewServiceTest {
         CourseAccessService courseAccessService = mock(CourseAccessService.class);
         service = spy(new VideoViewService(
                 courseVideoRepository,
+                mock(CourseRepository.class),
                 videoViewRepository,
                 appUserRepository,
                 courseAccessService

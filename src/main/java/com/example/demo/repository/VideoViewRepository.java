@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface VideoViewRepository extends JpaRepository<VideoView, Long> {
 
@@ -22,4 +23,13 @@ public interface VideoViewRepository extends JpaRepository<VideoView, Long> {
 
     @Query("select count(view) from VideoView view where view.video.id = :videoId and view.viewCount > 0")
     long uniqueViewers(@Param("videoId") Long videoId);
+
+    @Query("""
+            select view.video.id, coalesce(sum(view.viewCount), 0),
+                   sum(case when view.viewCount > 0 then 1 else 0 end)
+            from VideoView view
+            where view.video.course.id = :courseId
+            group by view.video.id
+            """)
+    List<Object[]> statsByCourse(@Param("courseId") Long courseId);
 }
