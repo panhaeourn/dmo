@@ -5,6 +5,7 @@ import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
+import com.example.demo.service.VideoViewService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,8 @@ class CourseVideoControllerTest {
                 courseRepository,
                 courseVideoRepository,
                 fileService,
-                courseAccessService
+                courseAccessService,
+                mock(VideoViewService.class)
         );
     }
 

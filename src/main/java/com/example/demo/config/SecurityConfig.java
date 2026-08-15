@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/files/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/course-videos/*/view-heartbeat").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/course-videos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/course-videos/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/certificates/**").hasRole("ADMIN")

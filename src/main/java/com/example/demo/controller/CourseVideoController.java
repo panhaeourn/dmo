@@ -2,10 +2,13 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Course;
 import com.example.demo.entity.CourseVideo;
+import com.example.demo.dto.VideoHeartbeatRequest;
+import com.example.demo.dto.VideoViewResponse;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
+import com.example.demo.service.VideoViewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -27,6 +30,7 @@ public class CourseVideoController {
     private final CourseVideoRepository courseVideoRepository;
     private final FileService fileService;
     private final CourseAccessService courseAccessService;
+    private final VideoViewService videoViewService;
 
     @PostMapping("/{courseId}/upload")
     public CourseVideo uploadVideo(
@@ -84,5 +88,19 @@ public class CourseVideoController {
         }
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{videoId}/view-heartbeat")
+    public VideoViewResponse recordViewHeartbeat(
+            @PathVariable Long videoId,
+            @RequestBody VideoHeartbeatRequest request,
+            Authentication authentication
+    ) {
+        return videoViewService.heartbeat(videoId, request, authentication);
+    }
+
+    @GetMapping("/{videoId}/view-stats")
+    public VideoViewResponse getViewStats(@PathVariable Long videoId, Authentication authentication) {
+        return videoViewService.stats(videoId, authentication);
     }
 }
