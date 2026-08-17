@@ -7,6 +7,9 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
+import io.minio.ListObjectsArgs;
+import io.minio.Result;
+import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +17,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -98,6 +104,23 @@ public class FileService {
         metadataCache.remove(fileName);
     }
 
+    public List<StoredObject> listObjects() throws Exception {
+        List<StoredObject> objects = new ArrayList<>();
+        Iterable<Result<Item>> results = storageClient.listObjects(
+                ListObjectsArgs.builder().bucket(bucket).recursive(true).build()
+        );
+        for (Result<Item> result : results) {
+            Item item = result.get();
+            if (!item.isDir()) {
+                objects.add(new StoredObject(item.objectName(), item.size(), item.lastModified().toInstant()));
+            }
+        }
+        return objects;
+    }
+
     public record FileMetadata(long size, String contentType, String etag) {
+    }
+
+    public record StoredObject(String key, long size, Instant lastModified) {
     }
 }

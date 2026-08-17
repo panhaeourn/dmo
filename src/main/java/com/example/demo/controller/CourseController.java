@@ -5,12 +5,14 @@ import com.example.demo.dto.CourseResponse;
 import com.example.demo.entity.AppUser;
 import com.example.demo.entity.Course;
 import com.example.demo.entity.Enrollment;
+import com.example.demo.entity.CourseVideo;
 import com.example.demo.repository.AppUserRepository;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.repository.EnrollmentRepository;
 import com.example.demo.repository.PaymentHistoryRepository;
 import com.example.demo.service.FileService;
+import com.example.demo.service.R2CleanupService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,6 +37,7 @@ public class CourseController {
     private final CourseVideoRepository courseVideoRepository;
     private final PaymentHistoryRepository paymentHistoryRepository;
     private final FileService fileService;
+    private final R2CleanupService r2CleanupService;
 
     public CourseController(
             CourseRepository courseRepository,
@@ -42,7 +45,8 @@ public class CourseController {
             EnrollmentRepository enrollmentRepository,
             CourseVideoRepository courseVideoRepository,
             PaymentHistoryRepository paymentHistoryRepository,
-            FileService fileService
+            FileService fileService,
+            R2CleanupService r2CleanupService
     ) {
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
@@ -50,6 +54,7 @@ public class CourseController {
         this.courseVideoRepository = courseVideoRepository;
         this.paymentHistoryRepository = paymentHistoryRepository;
         this.fileService = fileService;
+        this.r2CleanupService = r2CleanupService;
     }
 
     @GetMapping
@@ -197,6 +202,14 @@ public class CourseController {
         if (!canManageCourse(user, course)) {
             return ResponseEntity.status(403).body("Forbidden: not allowed to delete this course");
         }
+
+        Set<String> objectKeys = new HashSet<>();
+        for (CourseVideo video : courseVideoRepository.findByCourseIdOrderBySortOrderAscIdAsc(courseId)) {
+            if (video.getFileName() != null && !video.getFileName().isBlank()) objectKeys.add(video.getFileName());
+        }
+        if (course.getVideoFileName() != null && !course.getVideoFileName().isBlank()) objectKeys.add(course.getVideoFileName());
+        if (course.getTeacherPhotoFileName() != null && !course.getTeacherPhotoFileName().isBlank()) objectKeys.add(course.getTeacherPhotoFileName());
+        objectKeys.forEach(key -> r2CleanupService.enqueue(key, "course-deleted:" + courseId));
 
         courseVideoRepository.deleteByCourseId(courseId);
         enrollmentRepository.deleteByCourseId(courseId);

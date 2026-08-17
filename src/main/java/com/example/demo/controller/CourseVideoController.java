@@ -15,6 +15,7 @@ import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import com.example.demo.service.VideoViewService;
 import com.example.demo.service.MultipartVideoUploadService;
+import com.example.demo.service.R2CleanupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/course-videos")
@@ -38,6 +40,7 @@ public class CourseVideoController {
     private final CourseAccessService courseAccessService;
     private final VideoViewService videoViewService;
     private final MultipartVideoUploadService multipartVideoUploadService;
+    private final R2CleanupService r2CleanupService;
 
     @PostMapping("/{courseId}/multipart/start")
     public MultipartUploadStartResponse startMultipartUpload(
@@ -104,20 +107,17 @@ public class CourseVideoController {
     }
 
     @DeleteMapping("/{videoId}")
+    @Transactional
     public ResponseEntity<Void> deleteVideo(@PathVariable Long videoId) {
         CourseVideo video = courseVideoRepository.findById(videoId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found"));
 
-        courseVideoRepository.delete(video);
-
         String fileName = video.getFileName();
         if (fileName != null && !fileName.isBlank()) {
-            try {
-                fileService.delete(fileName);
-            } catch (Exception exception) {
-                log.warn("Deleted lesson {} but could not remove R2 object {}", videoId, fileName, exception);
-            }
+            r2CleanupService.enqueue(fileName, "lesson-deleted:" + videoId);
         }
+
+        courseVideoRepository.delete(video);
 
         return ResponseEntity.noContent().build();
     }

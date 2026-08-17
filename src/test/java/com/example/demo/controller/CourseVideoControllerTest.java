@@ -7,6 +7,7 @@ import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import com.example.demo.service.VideoViewService;
 import com.example.demo.service.MultipartVideoUploadService;
+import com.example.demo.service.R2CleanupService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ class CourseVideoControllerTest {
     private CourseVideoRepository courseVideoRepository;
     private FileService fileService;
     private CourseVideoController controller;
+    private R2CleanupService r2CleanupService;
 
     @BeforeEach
     void setUp() {
@@ -33,13 +35,15 @@ class CourseVideoControllerTest {
         courseVideoRepository = mock(CourseVideoRepository.class);
         fileService = mock(FileService.class);
         CourseAccessService courseAccessService = mock(CourseAccessService.class);
+        r2CleanupService = mock(R2CleanupService.class);
         controller = new CourseVideoController(
                 courseRepository,
                 courseVideoRepository,
                 fileService,
                 courseAccessService,
                 mock(VideoViewService.class),
-                mock(MultipartVideoUploadService.class)
+                mock(MultipartVideoUploadService.class),
+                r2CleanupService
         );
     }
 
@@ -53,7 +57,7 @@ class CourseVideoControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(courseVideoRepository).delete(video);
-        verify(fileService).delete("lesson.mp4");
+        verify(r2CleanupService).enqueue("lesson.mp4", "lesson-deleted:7");
     }
 
     @Test
