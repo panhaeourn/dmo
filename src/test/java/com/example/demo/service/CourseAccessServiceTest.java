@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CourseAccessServiceTest {
@@ -37,6 +38,20 @@ class CourseAccessServiceTest {
         course = new Course();
         user = new AppUser();
         user.setEmail("student@example.com");
+    }
+
+    @Test
+    void allowsAuthenticatedUserToWatchFreeCourseWithoutEnrollment() {
+        course.setFreeAccess(true);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                "student@example.com",
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+
+        service.requireCourseAccess(authentication, course);
+
+        verifyNoInteractions(appUserRepository, enrollmentRepository);
     }
 
     @Test

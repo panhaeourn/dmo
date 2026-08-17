@@ -17,6 +17,9 @@ public class Course {
     @Column(nullable = false)
     private Double price = 5.0;
 
+    @Column(nullable = false)
+    private boolean freeAccess = false;
+
     private String videoFileName;
 
     private String teacherPhotoFileName;
@@ -55,6 +58,9 @@ public class Course {
 
     public Double getPrice() { return price; }
     public void setPrice(Double price) { this.price = price; }
+
+    public boolean isFreeAccess() { return freeAccess; }
+    public void setFreeAccess(boolean freeAccess) { this.freeAccess = freeAccess; }
 
     public String getVideoFileName() { return videoFileName; }
     public void setVideoFileName(String videoFileName) { this.videoFileName = videoFileName; }

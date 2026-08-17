@@ -5,6 +5,7 @@ public class CourseResponse {
     private String title;
     private String description;
     private Double price;
+    private boolean freeAccess;
     private String videoFileName;
     private String videoUrl;
     private String teacherPhotoFileName;
@@ -23,6 +24,7 @@ public class CourseResponse {
             String title,
             String description,
             Double price,
+            boolean freeAccess,
             String videoFileName,
             String videoUrl,
             String teacherPhotoFileName,
@@ -38,6 +40,7 @@ public class CourseResponse {
         this.title = title;
         this.description = description;
         this.price = price;
+        this.freeAccess = freeAccess;
         this.videoFileName = videoFileName;
         this.videoUrl = videoUrl;
         this.teacherPhotoFileName = teacherPhotoFileName;
@@ -61,6 +64,9 @@ public class CourseResponse {
 
     public Double getPrice() { return price; }
     public void setPrice(Double price) { this.price = price; }
+
+    public boolean isFreeAccess() { return freeAccess; }
+    public void setFreeAccess(boolean freeAccess) { this.freeAccess = freeAccess; }
 
     public String getVideoFileName() { return videoFileName; }
     public void setVideoFileName(String videoFileName) { this.videoFileName = videoFileName; }

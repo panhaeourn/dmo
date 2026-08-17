@@ -7,4 +7,5 @@ public class CourseCreateRequest {
     private String title;
     private String description;
     private Double price;
+    private Boolean freeAccess;
 }

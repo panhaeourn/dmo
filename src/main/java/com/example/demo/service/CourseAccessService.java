@@ -22,6 +22,10 @@ public class CourseAccessService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
         }
 
+        if (course != null && course.isFreeAccess()) {
+            return;
+        }
+
         boolean admin = authentication.getAuthorities().stream()
                 .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
         if (admin) {

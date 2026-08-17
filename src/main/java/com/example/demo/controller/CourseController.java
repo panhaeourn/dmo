@@ -104,8 +104,9 @@ public class CourseController {
             return ResponseEntity.status(401).build();
         }
 
-        Double price = req.getPrice();
-        if (price == null || price <= 0) price = 5.0;
+        boolean freeAccess = Boolean.TRUE.equals(req.getFreeAccess());
+        Double price = freeAccess ? 0.0 : req.getPrice();
+        if (!freeAccess && (price == null || price <= 0)) price = 5.0;
 
         String email = extractEmail(authentication);
         if (email == null || email.isBlank()) {
@@ -126,6 +127,7 @@ public class CourseController {
         course.setTitle(req.getTitle());
         course.setDescription(req.getDescription());
         course.setPrice(price);
+        course.setFreeAccess(freeAccess);
         course.setUser(user);
 
         Course saved = courseRepository.save(course);
@@ -160,11 +162,13 @@ public class CourseController {
 
         course.setDescription(req.getDescription());
 
-        Double price = req.getPrice();
-        if (price == null || price <= 0) {
+        boolean freeAccess = Boolean.TRUE.equals(req.getFreeAccess());
+        Double price = freeAccess ? 0.0 : req.getPrice();
+        if (!freeAccess && (price == null || price <= 0)) {
             price = 5.0;
         }
         course.setPrice(price);
+        course.setFreeAccess(freeAccess);
 
         Course saved = courseRepository.save(course);
         boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
@@ -383,6 +387,7 @@ public class CourseController {
                 course.getTitle(),
                 course.getDescription(),
                 course.getPrice(),
+                course.isFreeAccess(),
                 course.getVideoFileName(),
                 videoUrl,
                 course.getTeacherPhotoFileName(),
@@ -391,7 +396,7 @@ public class CourseController {
                 course.getTeacherPhotoPositionY(),
                 course.getTeacherPhotoBottomDarkness(),
                 course.getTeacherPhotoScale(),
-                enrolled,
+                enrolled || course.isFreeAccess(),
                 purchaseCount
         );
     }
