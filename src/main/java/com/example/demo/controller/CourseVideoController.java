@@ -5,11 +5,16 @@ import com.example.demo.entity.CourseVideo;
 import com.example.demo.dto.VideoHeartbeatRequest;
 import com.example.demo.dto.VideoViewResponse;
 import com.example.demo.dto.VideoListStatsResponse;
+import com.example.demo.dto.MultipartUploadAbortRequest;
+import com.example.demo.dto.MultipartUploadCompleteRequest;
+import com.example.demo.dto.MultipartUploadStartRequest;
+import com.example.demo.dto.MultipartUploadStartResponse;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.CourseVideoRepository;
 import com.example.demo.service.CourseAccessService;
 import com.example.demo.service.FileService;
 import com.example.demo.service.VideoViewService;
+import com.example.demo.service.MultipartVideoUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -32,6 +37,32 @@ public class CourseVideoController {
     private final FileService fileService;
     private final CourseAccessService courseAccessService;
     private final VideoViewService videoViewService;
+    private final MultipartVideoUploadService multipartVideoUploadService;
+
+    @PostMapping("/{courseId}/multipart/start")
+    public MultipartUploadStartResponse startMultipartUpload(
+            @PathVariable Long courseId,
+            @RequestBody MultipartUploadStartRequest request
+    ) {
+        return multipartVideoUploadService.start(courseId, request);
+    }
+
+    @PostMapping("/{courseId}/multipart/complete")
+    public CourseVideo completeMultipartUpload(
+            @PathVariable Long courseId,
+            @RequestBody MultipartUploadCompleteRequest request
+    ) {
+        return multipartVideoUploadService.complete(courseId, request);
+    }
+
+    @PostMapping("/{courseId}/multipart/abort")
+    public ResponseEntity<Void> abortMultipartUpload(
+            @PathVariable Long courseId,
+            @RequestBody MultipartUploadAbortRequest request
+    ) {
+        multipartVideoUploadService.abort(courseId, request.objectKey(), request.uploadId());
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/{courseId}/upload")
     public CourseVideo uploadVideo(
