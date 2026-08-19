@@ -60,6 +60,7 @@ public class CourseController {
     @GetMapping
     public List<CourseResponse> getAll(Authentication authentication) {
         Set<Long> enrolledCourseIds = new HashSet<>();
+        boolean adminAccess = hasAdminAccess(authentication);
         Map<Long, Long> purchaseCounts = paymentHistoryRepository.countPaidCoursePurchases()
                 .stream()
                 .collect(Collectors.toMap(
@@ -81,7 +82,7 @@ public class CourseController {
                 .stream()
                 .map(course -> toResponse(
                         course,
-                        enrolledCourseIds.contains(course.getId()),
+                        adminAccess || enrolledCourseIds.contains(course.getId()),
                         purchaseCounts.getOrDefault(course.getId(), 0L)
                 ))
                 .toList();
@@ -93,7 +94,7 @@ public class CourseController {
         Course course = courseRepository.findById(id).orElse(null);
         boolean enrolled = user != null && course != null && enrollmentRepository.existsByUserAndCourse(user, course);
 
-        final boolean finalEnrolled = enrolled;
+        final boolean finalEnrolled = hasAdminAccess(authentication) || enrolled;
 
         return course == null
                 ? ResponseEntity.notFound().build()
@@ -136,7 +137,7 @@ public class CourseController {
         course.setUser(user);
 
         Course saved = courseRepository.save(course);
-        return ResponseEntity.ok(toResponse(saved, false));
+        return ResponseEntity.ok(toResponse(saved, hasAdminAccess(authentication)));
     }
 
     @PutMapping("/{courseId}")
@@ -178,7 +179,7 @@ public class CourseController {
         Course saved = courseRepository.save(course);
         boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
 
-        return ResponseEntity.ok(toResponse(saved, enrolled));
+        return ResponseEntity.ok(toResponse(saved, hasAdminAccess(authentication) || enrolled));
     }
 
     @DeleteMapping("/{courseId}")
@@ -246,7 +247,7 @@ public class CourseController {
         Course saved = courseRepository.save(course);
         boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
 
-        return ResponseEntity.ok(toResponse(saved, enrolled));
+        return ResponseEntity.ok(toResponse(saved, hasAdminAccess(authentication) || enrolled));
     }
 
     @PostMapping(value = "/{courseId}/teacher-photo", consumes = "multipart/form-data")
@@ -283,7 +284,7 @@ public class CourseController {
         Course saved = courseRepository.save(course);
         boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
 
-        return ResponseEntity.ok(toResponse(saved, enrolled));
+        return ResponseEntity.ok(toResponse(saved, hasAdminAccess(authentication) || enrolled));
     }
 
     @PatchMapping("/{courseId}/teacher-photo")
@@ -317,7 +318,7 @@ public class CourseController {
         Course saved = courseRepository.save(course);
         boolean enrolled = enrollmentRepository.existsByUserAndCourse(user, saved);
 
-        return ResponseEntity.ok(toResponse(saved, enrolled));
+        return ResponseEntity.ok(toResponse(saved, hasAdminAccess(authentication) || enrolled));
     }
 
     private String extractEmail(Authentication authentication) {
@@ -349,6 +350,13 @@ public class CourseController {
             return null;
         }
         return userRepository.findByEmailIgnoreCase(email).orElse(null);
+    }
+
+    private boolean hasAdminAccess(Authentication authentication) {
+        return authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
     private boolean canManageCourse(AppUser user, Course course) {
