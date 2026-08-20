@@ -112,6 +112,7 @@ public class CitoReceiptController {
         receipt.setStudentNameEnglish(request.getStudentNameEnglish());
         receipt.setStudentNameKhmer(request.getStudentNameKhmer());
         receipt.setBirthDate(request.getBirthDate());
+        receipt.setCompletionStatus("PENDING");
         receipt.setGender(request.getGender());
         receipt.setPhone(request.getPhone());
         receipt.setContactInfo(request.getContactInfo());
@@ -138,6 +139,18 @@ public class CitoReceiptController {
 
         decorateReceipt(saved);
         return ResponseEntity.ok(saved);
+    }
+
+    @PatchMapping("/{id}/completion-status")
+    public ResponseEntity<?> updateCompletionStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        CitoReceipt receipt = receiptRepository.findById(id).orElse(null);
+        if (receipt == null) return ResponseEntity.notFound().build();
+        String status = body == null ? null : body.get("status");
+        if (!"PENDING".equals(status) && !"APPROVED".equals(status)) {
+            return ResponseEntity.badRequest().body("Status must be PENDING or APPROVED");
+        }
+        receipt.setCompletionStatus(status);
+        return ResponseEntity.ok(receiptRepository.save(receipt));
     }
 
     @GetMapping

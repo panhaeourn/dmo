@@ -1,0 +1,2 @@
+ALTER TABLE cito_receipts
+    ADD COLUMN IF NOT EXISTS completion_status VARCHAR(32) NOT NULL DEFAULT 'PENDING';

@@ -32,6 +32,8 @@ public class CitoReceipt {
 
     private String birthDate;
 
+    private String completionStatus = "PENDING";
+
     private String gender;
 
     private String phone;
@@ -156,6 +158,14 @@ public class CitoReceipt {
 
     public void setBirthDate(String birthDate) {
         this.birthDate = birthDate;
+    }
+
+    public String getCompletionStatus() {
+        return completionStatus;
+    }
+
+    public void setCompletionStatus(String completionStatus) {
+        this.completionStatus = completionStatus;
     }
 
     public String getGender() {
