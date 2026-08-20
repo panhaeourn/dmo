@@ -37,6 +37,7 @@ public class PaymentHistory {
 
     private String checkedBy;
     private String note;
+    private String completionStatus = "PENDING";
 
     public PaymentHistory() {
     }
@@ -180,4 +181,6 @@ public class PaymentHistory {
     public void setNote(String note) {
         this.note = note;
     }
+    public String getCompletionStatus() { return completionStatus; }
+    public void setCompletionStatus(String completionStatus) { this.completionStatus = completionStatus; }
 }

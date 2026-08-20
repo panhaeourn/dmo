@@ -6,6 +6,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/payment-history")
@@ -21,6 +22,15 @@ public class PaymentHistoryController {
     @GetMapping
     public List<PaymentHistory> getAll() {
         return paymentHistoryRepository.findAllByOrderByIdDesc();
+    }
+
+    @PatchMapping("/{id}/completion-status")
+    public PaymentHistory updateCompletionStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        PaymentHistory row = paymentHistoryRepository.findById(id).orElseThrow();
+        String status = body == null ? null : body.get("status");
+        if (!"PENDING".equals(status) && !"APPROVED".equals(status)) throw new IllegalArgumentException("Invalid completion status");
+        row.setCompletionStatus(status);
+        return paymentHistoryRepository.save(row);
     }
 
     @GetMapping("/my")
