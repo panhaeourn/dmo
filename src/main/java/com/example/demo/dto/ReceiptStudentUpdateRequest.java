@@ -4,6 +4,7 @@ public class ReceiptStudentUpdateRequest {
     private String studentName;
     private String studentNameEnglish;
     private String studentNameKhmer;
+    private String birthDate;
     private String gender;
     private String phone;
     private String contactInfo;
@@ -16,6 +17,8 @@ public class ReceiptStudentUpdateRequest {
     public void setStudentNameEnglish(String studentNameEnglish) { this.studentNameEnglish = studentNameEnglish; }
     public String getStudentNameKhmer() { return studentNameKhmer; }
     public void setStudentNameKhmer(String studentNameKhmer) { this.studentNameKhmer = studentNameKhmer; }
+    public String getBirthDate() { return birthDate; }
+    public void setBirthDate(String birthDate) { this.birthDate = birthDate; }
     public String getGender() { return gender; }
     public void setGender(String gender) { this.gender = gender; }
     public String getPhone() { return phone; }
