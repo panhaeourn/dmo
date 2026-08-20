@@ -30,6 +30,8 @@ public class CitoReceipt {
 
     private String studentNameKhmer;
 
+    private String birthDate;
+
     private String gender;
 
     private String phone;
@@ -146,6 +148,14 @@ public class CitoReceipt {
 
     public void setStudentNameKhmer(String studentNameKhmer) {
         this.studentNameKhmer = studentNameKhmer;
+    }
+
+    public String getBirthDate() {
+        return birthDate;
+    }
+
+    public void setBirthDate(String birthDate) {
+        this.birthDate = birthDate;
     }
 
     public String getGender() {

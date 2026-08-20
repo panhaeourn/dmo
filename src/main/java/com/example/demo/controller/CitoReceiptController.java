@@ -111,6 +111,7 @@ public class CitoReceiptController {
         receipt.setStudentName(request.getStudentName());
         receipt.setStudentNameEnglish(request.getStudentNameEnglish());
         receipt.setStudentNameKhmer(request.getStudentNameKhmer());
+        receipt.setBirthDate(request.getBirthDate());
         receipt.setGender(request.getGender());
         receipt.setPhone(request.getPhone());
         receipt.setContactInfo(request.getContactInfo());
